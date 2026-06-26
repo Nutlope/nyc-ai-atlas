@@ -1133,6 +1133,77 @@ kbd {
   }
 }
 
+/* "Best on desktop" gate — the 3D map keeps rendering behind it */
+.mobile-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: linear-gradient(
+    180deg,
+    oklch(28% 0.04 250 / 0.55),
+    oklch(20% 0.03 258 / 0.62)
+  );
+  backdrop-filter: blur(2px);
+}
+
+.mobile-gate__card {
+  max-width: 22rem;
+  padding: 1.6rem 1.5rem;
+  border: 1px solid oklch(98% 0.004 250 / 0.7);
+  border-radius: var(--radius-lg, 1rem);
+  background: oklch(99% 0.003 250 / 0.96);
+  box-shadow: 0 28px 70px oklch(16% 0.02 258 / 0.4);
+  text-align: center;
+}
+
+.mobile-gate__glyph {
+  display: block;
+  margin-bottom: 0.7rem;
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.mobile-gate__card h2 {
+  margin: 0 0 0.6rem;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.mobile-gate__card p {
+  margin: 0 0 1.2rem;
+  color: var(--color-ink-2);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.mobile-gate__continue {
+  min-height: 2.5rem;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mobile-gate.is-dismissed {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-gate {
+    display: flex;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

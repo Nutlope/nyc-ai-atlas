@@ -99,7 +99,13 @@ const vehicleFleet = [];
 const ferryFleet = [];
 const planeFleet = [];
 const subwayFleet = [];
+const treeBuffer = []; // { x, z, type: "conifer"|"round", scale, rot, colorIndex }
 let hoverCandidate = null;
+
+// Greenery palette — a spread of NYC park greens for per-instance tree color.
+const GREEN_PALETTE = [
+  0x3b7437, 0x4f9652, 0x5ba350, 0x6fae4f, 0x86c263, 0x9bcf78, 0x6b9b3c,
+].map((c) => new THREE.Color(c));
 
 const colors = {
   accent: new THREE.Color(0x2664ff),
@@ -183,6 +189,24 @@ const materials = {
   roof: new THREE.MeshStandardMaterial({
     color: 0x657071,
     roughness: 0.7,
+  }),
+  roofColored: new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.74,
+  }),
+  treeLeaf: new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.92,
+    flatShading: true,
+  }),
+  treeTrunk: new THREE.MeshStandardMaterial({
+    color: 0x6b4f33,
+    roughness: 0.9,
+  }),
+  hill: new THREE.MeshStandardMaterial({
+    color: 0x6fae5a,
+    roughness: 0.96,
+    flatShading: true,
   }),
   glass: new THREE.MeshStandardMaterial({
     color: 0x8fb4bd,
@@ -407,18 +431,137 @@ function addLandmarkLabel(name, lat, lng, y = 3) {
   landmarkLabelElements.push({ el, point: { lat, lng, y } });
 }
 
-function createCentralParkDetails() {
-  // Green base, then water bodies and lawns layered on top.
-  makeShape(CENTRAL_PARK, materials.park, 0.055, true);
+// Queue a tree to be built later in one batched instanced draw.
+function addTree(lat, lng, random, { type, scaleBase = 1 } = {}) {
+  const p = project(lat, lng);
+  treeBuffer.push({
+    x: p.x,
+    z: p.z,
+    type: type || (random() < 0.42 ? "conifer" : "round"),
+    scale: scaleBase * (0.62 + random() * 0.7),
+    rot: random() * Math.PI,
+    colorIndex: Math.floor(random() * GREEN_PALETTE.length),
+  });
+}
 
+// Fill a polygon with trees at a given target count; optional water exclusion.
+function scatterTreesInPoly(poly, count, random, opts = {}) {
+  const lats = poly.map((c) => c[0]);
+  const lngs = poly.map((c) => c[1]);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  let placed = 0;
+  let guard = 0;
+  const cap = count * 20;
+  while (placed < count && guard < cap) {
+    guard += 1;
+    const lat = minLat + random() * (maxLat - minLat);
+    const lng = minLng + random() * (maxLng - minLng);
+    if (!pointInPoly(lat, lng, poly)) continue;
+    if (opts.avoidWater && CENTRAL_PARK_FEATURES.some((f) => f.kind === "water" && inEllipse(lat, lng, f))) continue;
+    addTree(lat, lng, random, opts);
+    placed += 1;
+  }
+}
+
+// Build every queued tree into three instanced meshes (cones, blobs, trunks).
+function buildTrees() {
+  if (!treeBuffer.length) return;
+  const conifers = treeBuffer.filter((t) => t.type === "conifer");
+  const rounds = treeBuffer.filter((t) => t.type === "round");
+
+  const matrix = new THREE.Matrix4();
+  const quat = new THREE.Quaternion();
+  const scl = new THREE.Vector3();
+  const pos = new THREE.Vector3();
+  const col = new THREE.Color();
+
+  if (conifers.length) {
+    const geo = new THREE.ConeGeometry(0.16, 0.62, 6);
+    const mesh = new THREE.InstancedMesh(geo, materials.treeLeaf, conifers.length);
+    mesh.castShadow = true;
+    conifers.forEach((t, i) => {
+      pos.set(t.x, 0.31 * t.scale + 0.05, t.z);
+      quat.setFromAxisAngle(UP, t.rot);
+      scl.setScalar(t.scale);
+      matrix.compose(pos, quat, scl);
+      mesh.setMatrixAt(i, matrix);
+      col.copy(GREEN_PALETTE[t.colorIndex]);
+      mesh.setColorAt(i, col);
+    });
+    scene.add(mesh);
+  }
+
+  if (rounds.length) {
+    const leafGeo = new THREE.IcosahedronGeometry(0.24, 0);
+    const leafMesh = new THREE.InstancedMesh(leafGeo, materials.treeLeaf, rounds.length);
+    leafMesh.castShadow = true;
+    const trunkGeo = new THREE.CylinderGeometry(0.035, 0.05, 0.22, 5);
+    const trunkMesh = new THREE.InstancedMesh(trunkGeo, materials.treeTrunk, rounds.length);
+    trunkMesh.castShadow = true;
+    rounds.forEach((t, i) => {
+      const trunkH = 0.2 * t.scale;
+      pos.set(t.x, trunkH / 2 + 0.05, t.z);
+      quat.setFromAxisAngle(UP, 0);
+      scl.set(t.scale, t.scale, t.scale);
+      matrix.compose(pos, quat, scl);
+      trunkMesh.setMatrixAt(i, matrix);
+
+      pos.set(t.x, trunkH + 0.2 * t.scale + 0.05, t.z);
+      quat.setFromAxisAngle(UP, t.rot);
+      scl.set(t.scale, t.scale * 0.92, t.scale);
+      matrix.compose(pos, quat, scl);
+      leafMesh.setMatrixAt(i, matrix);
+      col.copy(GREEN_PALETTE[t.colorIndex]);
+      leafMesh.setColorAt(i, col);
+    });
+    scene.add(trunkMesh);
+    scene.add(leafMesh);
+  }
+}
+
+// Low-poly faceted grass mound for gentle, rolling terrain.
+function createHill(lat, lng, radius, height, tint = 0) {
+  const geo = new THREE.IcosahedronGeometry(1, 1);
+  const mat = materials.hill.clone();
+  if (tint) mat.color.offsetHSL(0, 0, tint);
+  const mesh = new THREE.Mesh(geo, mat);
+  const p = project(lat, lng);
+  mesh.scale.set(radius, height, radius);
+  mesh.position.set(p.x, 0.05, p.z); // equator at the grass plane; cap forms the hill
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+}
+
+function createCentralParkDetails() {
+  const random = seededRandom(930);
+
+  // Green base.
+  makeShape(CENTRAL_PARK, materials.park, 0.045, true);
+
+  // Rolling hills (Great Hill, the West Side rise, Cedar Hill, etc.).
+  const hills = [
+    [40.7965, -73.9628, 3.2, 0.5, 0.04],
+    [40.7745, -73.9745, 2.8, 0.42, 0.0],
+    [40.7805, -73.9705, 3.0, 0.46, -0.03],
+    [40.7715, -73.9685, 2.4, 0.36, 0.05],
+    [40.7885, -73.9605, 2.6, 0.4, 0.02],
+    [40.7672, -73.9762, 2.2, 0.34, 0.03],
+  ];
+  hills.forEach(([lat, lng, r, h, tint]) => createHill(lat, lng, r, h, tint));
+
+  // Lawns + water sit on the flat ground (the hills are placed away from them).
   CENTRAL_PARK_FEATURES.forEach((f) => {
     const coords = ellipseCoords(f.lat, f.lng, f.rLat, f.rLng, 30);
-    if (f.kind === "water") makeShape(coords, materials.pond, 0.075, true);
+    if (f.kind === "water") makeShape(coords, materials.pond, 0.085, true);
     else makeShape(coords, materials.parkLight, 0.07, true);
   });
 
-  // Main drives + transverse paths, traced loosely along the park loop.
-  const paths = [
+  // Park drive loop.
+  makeTube(
     [
       [40.7672, -73.9745],
       [40.772, -73.971],
@@ -432,81 +575,38 @@ function createCentralParkDetails() {
       [40.7685, -73.9805],
       [40.7672, -73.9745],
     ],
-  ];
-  paths.forEach((path) => makeTube(path, 0.022, materials.path, 0.07, 80));
+    0.02,
+    materials.path,
+    0.06,
+    90,
+  );
 
-  // Trees scattered only on the green (skip water bodies).
-  const random = seededRandom(930);
-  const treeGeo = new THREE.ConeGeometry(0.14, 0.5, 6);
-  const treeData = [];
-  let guard = 0;
-  while (treeData.length < 220 && guard < 4000) {
-    guard += 1;
-    const lat = 40.765 + random() * 0.036;
-    const lng = -73.982 + random() * 0.029;
-    if (!pointInPoly(lat, lng, CENTRAL_PARK)) continue;
-    if (CENTRAL_PARK_FEATURES.some((f) => f.kind === "water" && inEllipse(lat, lng, f))) continue;
-    treeData.push([lat, lng]);
+  // The Mall: a straight allée lined with two rows of big trees.
+  const mallA = [40.7685, -73.9735];
+  const mallB = [40.7725, -73.9715];
+  for (let i = 0; i <= 9; i += 1) {
+    const t = i / 9;
+    const lat = mallA[0] + (mallB[0] - mallA[0]) * t;
+    const lng = mallA[1] + (mallB[1] - mallA[1]) * t;
+    addTree(lat - 0.0004, lng - 0.00055, random, { type: "round", scaleBase: 1.25 });
+    addTree(lat + 0.0004, lng + 0.00055, random, { type: "round", scaleBase: 1.25 });
   }
-  const treeMesh = new THREE.InstancedMesh(treeGeo, materials.parkDark, treeData.length);
-  const matrix = new THREE.Matrix4();
-  const quat = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  const pos = new THREE.Vector3();
-  treeData.forEach(([lat, lng], i) => {
-    const p = project(lat, lng);
-    pos.set(p.x, 0.3, p.z);
-    quat.setFromAxisAngle(UP, random() * Math.PI);
-    scale.setScalar(0.6 + random() * 0.8);
-    matrix.compose(pos, quat, scale);
-    treeMesh.setMatrixAt(i, matrix);
-  });
-  treeMesh.castShadow = true;
-  scene.add(treeMesh);
+
+  // General canopy across the park (avoid the water bodies).
+  scatterTreesInPoly(CENTRAL_PARK, 360, random, { avoidWater: true });
+
+  // Dense woodland in the Ramble and North Woods.
+  const ramble = ellipseCoords(40.7775, -73.9695, 0.0026, 0.0032, 12);
+  scatterTreesInPoly(ramble, 90, random, { type: "round", scaleBase: 1.1 });
+  const northWoods = ellipseCoords(40.7965, -73.9585, 0.003, 0.0028, 12);
+  scatterTreesInPoly(northWoods, 80, random, { type: "conifer", scaleBase: 1.15 });
 }
 
 function createParks() {
   PARKS.forEach((coords) => makeShape(coords, materials.park, 0.05, true));
 
-  // A scatter of trees over the larger green spaces for texture.
   const random = seededRandom(311);
-  const leafy = PARKS.filter((p) => p.length >= 4);
-  const treeGeo = new THREE.ConeGeometry(0.12, 0.4, 6);
-  const data = [];
-  leafy.forEach((poly) => {
-    const lats = poly.map((c) => c[0]);
-    const lngs = poly.map((c) => c[1]);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    let placed = 0;
-    let guard = 0;
-    while (placed < 14 && guard < 200) {
-      guard += 1;
-      const lat = minLat + random() * (maxLat - minLat);
-      const lng = minLng + random() * (maxLng - minLng);
-      if (pointInPoly(lat, lng, poly)) {
-        data.push([lat, lng]);
-        placed += 1;
-      }
-    }
-  });
-  const mesh = new THREE.InstancedMesh(treeGeo, materials.parkDark, data.length);
-  const matrix = new THREE.Matrix4();
-  const quat = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  const pos = new THREE.Vector3();
-  data.forEach(([lat, lng], i) => {
-    const p = project(lat, lng);
-    pos.set(p.x, 0.22, p.z);
-    quat.setFromAxisAngle(UP, random() * Math.PI);
-    scale.setScalar(0.55 + random() * 0.6);
-    matrix.compose(pos, quat, scale);
-    mesh.setMatrixAt(i, matrix);
-  });
-  mesh.castShadow = true;
-  scene.add(mesh);
+  PARKS.filter((p) => p.length >= 4).forEach((poly) => scatterTreesInPoly(poly, 16, random));
 }
 
 function createHarborIslands() {
@@ -1004,8 +1104,18 @@ function createBuildings() {
     new THREE.Color(0xd8d2c4), // pale stone
   ];
   const color = new THREE.Color();
+  // Roof tones add pops of color across the otherwise stone city.
+  const roofPalette = [
+    new THREE.Color(0x5a636c), // slate
+    new THREE.Color(0x4a525b), // dark slate
+    new THREE.Color(0xb15a3c), // terracotta
+    new THREE.Color(0x7c3b34), // oxide red
+    new THREE.Color(0x4f6b4d), // weathered green
+    new THREE.Color(0x8a7f6b), // tar/gravel
+  ];
+  const roofColor = new THREE.Color();
 
-  const roofMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), materials.roof, instances.length);
+  const roofMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), materials.roofColored, instances.length);
   roofMesh.castShadow = true;
   roofMesh.receiveShadow = true;
   let roofCount = 0;
@@ -1034,6 +1144,10 @@ function createBuildings() {
       scale.set(box.w * (0.46 + box.roof * 0.28), 0.12, box.d * (0.44 + box.roof * 0.26));
       matrix.compose(pos, quat, scale);
       roofMesh.setMatrixAt(roofCount, matrix);
+      // Mostly muted slate/gravel; ~30% get a warmer terracotta/red/green pop.
+      const warm = box.shade > 0.7 && box.h < 2.2;
+      roofColor.copy(roofPalette[warm ? 2 + (Math.floor(box.roof * 3) % 3) : box.roof > 0.5 ? 0 : 5]);
+      roofMesh.setColorAt(roofCount, roofColor);
       roofCount += 1;
     }
 
@@ -2045,6 +2159,11 @@ function bindEvents() {
       setActiveArea("all");
     });
 
+  const mobileGate = document.querySelector("#mobileGate");
+  const mobileGateContinue = document.querySelector("#mobileGateContinue");
+  if (mobileGateContinue && mobileGate)
+    mobileGateContinue.addEventListener("click", () => mobileGate.classList.add("is-dismissed"));
+
   labelToggle.addEventListener("click", () => {
     state.labelsMode = state.labelsMode === "all" ? "key" : "all";
     updateUiState();
@@ -2069,6 +2188,7 @@ function animate() {
 function init() {
   createLights();
   createBaseMap();
+  buildTrees();
   const roadPaths = createRoadsAndRails();
   createSubwayLayer();
   createBuildings();

@@ -7,7 +7,27 @@
       name="description"
       content="A high-fidelity 3D interactive map of New York City's AI startups, neighborhood by neighborhood."
     />
-    <title>NYC AI Atlas</title>
+    <title>NYC AI Atlas — A 3D map of New York's AI startups</title>
+
+    <!-- Open Graph / social cards -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="NYC AI Atlas" />
+    <meta property="og:title" content="NYC AI Atlas — A 3D map of New York's AI startups" />
+    <meta
+      property="og:description"
+      content="An interactive 3D map of every AI startup in New York City, explored block by block across 8 neighborhoods."
+    />
+    <meta property="og:image" content="./og.png" />
+    <meta property="og:image:width" content="2400" />
+    <meta property="og:image:height" content="1260" />
+    <meta property="og:image:alt" content="3D map of New York City showing AI startups across Manhattan and Brooklyn" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="NYC AI Atlas — A 3D map of New York's AI startups" />
+    <meta
+      name="twitter:description"
+      content="An interactive 3D map of every AI startup in New York City, explored block by block."
+    />
+    <meta name="twitter:image" content="./og.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -33,7 +53,7 @@
           <span class="search-trigger__keys"><kbd>⌘</kbd><kbd>K</kbd></span>
         </button>
         <div class="topbar__meta" aria-label="Map summary">
-          <span class="topbar__stat"><strong>47</strong> AI startups</span>
+          <span class="topbar__stat"><strong>45</strong> AI startups</span>
           <span class="topbar__stat"><strong>8</strong> neighborhoods</span>
         </div>
       </header>
@@ -72,14 +92,23 @@
       </aside>
 
       <footer class="source-line">
-        <span>47 AI startups across NYC · Company data from the <a href="https://airtable.com/appK49oThZBOTSYlX/shr5Chudz00G5jxwW/tblFlqQHeAvsVxLNI" target="_blank" rel="noreferrer">Lux NYC AI database</a> · Updated June 2026</span>
+        <span>45 AI startups across NYC · Company data from the <a href="https://airtable.com/appK49oThZBOTSYlX/shr5Chudz00G5jxwW/tblFlqQHeAvsVxLNI" target="_blank" rel="noreferrer">Lux NYC AI database</a> · Updated June 2026</span>
       </footer>
+
+      <div id="mobileGate" class="mobile-gate" role="dialog" aria-modal="true" aria-labelledby="mobileGateTitle">
+        <div class="mobile-gate__card">
+          <span class="mobile-gate__glyph" aria-hidden="true">🖥️</span>
+          <h2 id="mobileGateTitle">Best explored on a desktop</h2>
+          <p>The NYC AI Atlas is an interactive 3D map built for a bigger screen and a mouse or trackpad. Open it on a laptop or desktop for the full experience.</p>
+          <button id="mobileGateContinue" class="mobile-gate__continue" type="button">Continue anyway</button>
+        </div>
+      </div>
     </div>
 
     <dialog id="searchModal" class="search-modal" aria-label="Search AI startups">
       <div class="search-modal__bar">
         <svg class="search-modal__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input id="companySearch" type="search" autocomplete="off" placeholder="Search 47 AI startups by name, sector, or area…" aria-label="Search companies" />
+        <input id="companySearch" type="search" autocomplete="off" placeholder="Search 45 AI startups by name, sector, or area…" aria-label="Search companies" />
         <kbd class="search-modal__esc">esc</kbd>
       </div>
       <div id="searchResults" class="search-results" role="listbox"></div>
