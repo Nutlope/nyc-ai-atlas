@@ -12,8 +12,7 @@ export const AREAS = [
     shortLabel: "Whole Board",
     focus: { lat: 40.7278, lng: -73.9955, distance: 88, height: 62, rotation: 0.64 },
     description:
-      "The full Lux NYC startup layer: mapped founders, AI labs, creative tooling, data infrastructure, healthcare, finance, and developer tooling across Manhattan and Brooklyn.",
-    tags: ["48 mapped startups", "Lux Felt", "User addition"],
+      "47 AI companies, 8 neighborhoods, one city. Frontier labs, creative tools, infrastructure, fintech, and health — mapped block by block across Manhattan and Brooklyn.",
   },
   {
     id: "midtown",
@@ -22,8 +21,7 @@ export const AREAS = [
     shortLabel: "Midtown",
     focus: { lat: 40.7504, lng: -73.9847, distance: 36, height: 31, rotation: 0.36 },
     description:
-      "AI infrastructure and media companies cluster around the transit spine: Eleven Labs, Together AI, Pinecone, Snowflake, Datadog, Vic.ai, Rogo, and Glif.",
-    tags: ["Infra", "Audio", "Finance"],
+      "The heavyweight corridor. Infrastructure and media names — voice AI, data platforms, dev tooling — anchored to the Grand Central transit spine.",
   },
   {
     id: "flatiron",
@@ -32,8 +30,7 @@ export const AREAS = [
     shortLabel: "Flatiron",
     focus: { lat: 40.7352, lng: -73.9902, distance: 30, height: 26, rotation: 0.44 },
     description:
-      "The densest field on the map. Runway, Arena AI, Captions, Hume, Basis, Cognition, Patronus, PromptLayer, Tennr, and more sit within a few blocks.",
-    tags: ["Highest density", "Creative AI", "Automation"],
+      "The densest few blocks on the map. Dozens of early-stage teams — creative AI, automation, and developer tools — packed within a short walk of Union Square.",
   },
   {
     id: "west-side",
@@ -42,8 +39,7 @@ export const AREAS = [
     shortLabel: "West Side",
     focus: { lat: 40.7393, lng: -74.0069, distance: 32, height: 26, rotation: 0.74 },
     description:
-      "The Hudson edge mixes frontier labs and late-stage operators: Cohere, Robinhood, Sandbar, Endex, and surrounding Big Tech anchors.",
-    tags: ["Hudson", "Satellite offices", "AI infra"],
+      "The Hudson edge, where frontier labs and late-stage operators share the waterfront with Chelsea's big-tech offices.",
   },
   {
     id: "soho",
@@ -52,8 +48,7 @@ export const AREAS = [
     shortLabel: "SoHo",
     focus: { lat: 40.7216, lng: -74.001, distance: 28, height: 24, rotation: 0.82 },
     description:
-      "A compact pocket for applied AI products and model infrastructure: Hebbia, Modal, Seek AI, and nearby founder workspaces.",
-    tags: ["Applied AI", "Infrastructure", "Founder offices"],
+      "A compact downtown pocket of applied-AI products and model infrastructure, tucked among the cast-iron lofts.",
   },
   {
     id: "fidi",
@@ -62,8 +57,7 @@ export const AREAS = [
     shortLabel: "FiDi",
     focus: { lat: 40.7071, lng: -74.0097, distance: 34, height: 27, rotation: 0.9 },
     description:
-      "Downtown leans financial, legal, and industrial: Norm AI, Conductor AI, Diplo AI, Adonis, Spotify, and the lower-Manhattan context layer.",
-    tags: ["Legal", "Finance", "Industrial AI"],
+      "Lower Manhattan skews legal, financial, and industrial — regulated-world AI built in the shadow of Wall Street.",
   },
   {
     id: "brooklyn",
@@ -72,8 +66,7 @@ export const AREAS = [
     shortLabel: "Brooklyn",
     focus: { lat: 40.6995, lng: -73.982, distance: 46, height: 28, rotation: 1.18 },
     description:
-      "Across the East River, the map bends through DUMBO, Brooklyn Heights, Williamsburg, and the Navy Yard: Hugging Face, Etsy, Replit, Diode, Axion Ray, and Podium Automation.",
-    tags: ["DUMBO", "Navy Yard", "Creative infra"],
+      "Across the East River through DUMBO, Williamsburg, and the Navy Yard — open-source, hardware, and marketplace teams with room to build.",
   },
   {
     id: "capital",
@@ -82,8 +75,7 @@ export const AREAS = [
     shortLabel: "Capital",
     focus: { lat: 40.735, lng: -73.9948, distance: 58, height: 42, rotation: 0.62 },
     description:
-      "The support layer: VCs, events, Big Tech offices, coworking spaces, coffee stops, and university labs that help explain why the startup layer clusters where it does.",
-    tags: ["VCs", "Big Tech", "Universities"],
+      "The support layer — the VCs, big-tech offices, coworking spaces, and university labs that explain why the startups cluster where they do.",
   },
 ];
 
@@ -117,7 +109,6 @@ export const STARTUPS = [
   { id: "a9d9b894", name: "Patronus.ai", lat: 40.7301567, lng: -73.9877532, area: "flatiron", stage: "Early-Stage", sector: "DevOps", office: "HQ", website: "https://www.patronus.ai/", source: "felt+airtable" },
   { id: "9d2f04ad", name: "Pinecone", lat: 40.7477441, lng: -73.988356, area: "midtown", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://www.pinecone.io/", source: "felt+airtable" },
   { id: "35d68f92", name: "Podium Automation", lat: 40.699735, lng: -73.9778226, area: "brooklyn", stage: "Early-Stage", sector: "Manufacturing & Industrials", office: "HQ", website: "https://www.podiumautomation.com/", source: "felt+airtable" },
-  { id: "03a23ba5", name: "Princeton", lat: 40.7074633, lng: -74.024295, area: "fidi", stage: null, sector: "Mapped startup", office: null, website: null, source: "felt" },
   { id: "bbf65c57", name: "PromptLayer", lat: 40.731321, lng: -73.9935622, area: "flatiron", stage: "Early-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://promptlayer.com/", source: "felt+airtable" },
   { id: "4159bd84", name: "Replit", lat: 40.6950298, lng: -73.9739871, area: "brooklyn", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: "Satellite Office", website: "https://replit.com/", source: "felt+airtable" },
   { id: "711b43ac", name: "Replit", lat: 40.6944076, lng: -73.9731665, area: "brooklyn", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: "Satellite Office", website: "https://replit.com/", source: "felt+airtable" },
@@ -137,6 +128,58 @@ export const STARTUPS = [
   { id: "f6c37c10", name: "Vic.ai", lat: 40.7553967, lng: -73.97223, area: "midtown", stage: "Early-Stage", sector: "Financial Services", office: "HQ", website: "https://www.vic.ai/", source: "felt+airtable" },
   { id: "ee75072a", name: "Wiz", lat: 40.7479997, lng: -73.9977045, area: "midtown", stage: "Late-Stage", sector: "Security", office: "HQ", website: "https://www.wiz.io/", source: "felt+airtable" },
 ];
+
+// Short, human-written summaries + an approximate location (street · neighborhood,
+// never the exact unit). Keyed by startup id.
+export const COMPANY_INFO = {
+  "65a0d5fc": { blurb: "AI-native security that stops socially-engineered email and account-takeover attacks.", loc: "Union Square" },
+  d5a8e3da: { blurb: "Automates healthcare revenue cycle and medical billing with AI.", loc: "Wall St · FiDi" },
+  "01d9c120": { blurb: "AI agents that optimize pricing and operations for industrial enterprises.", loc: "E 15th St · Union Square" },
+  "24a8d04f": { blurb: "AI quality engineering that catches manufacturing defects before they ship.", loc: "Grand St · Williamsburg" },
+  "02910734": { blurb: "Autonomous AI agents that do real accounting work alongside finance teams.", loc: "E 18th St · Flatiron" },
+  "55265691": { blurb: "AI-powered video creation and editing studio built for creators.", loc: "E 9th St · Greenwich Village" },
+  aea536d9: { blurb: "Consumer app for chatting with millions of user-made AI characters.", loc: "E 9th St · Greenwich Village" },
+  df0ea37f: { blurb: "Builder of Devin, the autonomous AI software engineer.", loc: "E 13th St · Greenwich Village" },
+  "69020f2f": { blurb: "Enterprise LLMs and retrieval for secure, private business AI.", loc: "Bethune St · West Village" },
+  "7b24b80e": { blurb: "AI that clears enterprise and government compliance paperwork.", loc: "Pearl St · FiDi" },
+  "6b79cd43": { blurb: "Cloud-scale observability and monitoring for modern software.", loc: "7th Ave · Midtown" },
+  f0167ce8: { blurb: "AI copilot for designing electronics and printed circuit boards.", loc: "Brooklyn Navy Yard" },
+  ea7b3bc6: { blurb: "AI automation for back-office and operations workflows.", loc: "William St · FiDi" },
+  "4c1746d2": { blurb: "Lifelike AI voice synthesis and text-to-speech in any language.", loc: "Madison Ave · Murray Hill" },
+  a7dc7d0e: { blurb: "AI financial analyst that automates equity research workflows.", loc: "West Broadway · SoHo" },
+  aa2991c2: { blurb: "Global marketplace for handmade, vintage, and craft goods.", loc: "DUMBO · Brooklyn" },
+  "7352e1d6": { blurb: "Engineering accelerator and startup studio in Williamsburg.", loc: "S 2nd St · Williamsburg" },
+  "4fcaccfb": { blurb: "Build and remix small AI apps and image-generation workflows.", loc: "E 42nd St · Midtown" },
+  "3789f8f2": { blurb: "AI that reads and answers questions across huge document sets.", loc: "Broadway · SoHo" },
+  "3b60f454": { blurb: "The open-source hub for AI models, datasets, and demos.", loc: "Downtown Brooklyn" },
+  b599bee5: { blurb: "Emotionally intelligent voice AI grounded in expression science.", loc: "Gramercy Park" },
+  "19c795fd": { blurb: "Serverless cloud for running AI, ML, and data workloads.", loc: "Centre Market Pl · Nolita" },
+  "3aed3995": { blurb: "Tools to explore, visualize, and structure massive AI datasets.", loc: "E 14th St · Union Square" },
+  "90fc53b8": { blurb: "AI agents that automate regulatory compliance.", loc: "Broad St · FiDi" },
+  "91706d6e": { blurb: "AI agents that automate regulatory compliance.", loc: "William St · FiDi" },
+  "5775e245": { blurb: "Giving computers a sense of smell by digitizing scent.", loc: "Union Sq West · Union Square" },
+  a9d9b894: { blurb: "Automated evaluation and guardrails for large language models.", loc: "E 10th St · Greenwich Village" },
+  "9d2f04ad": { blurb: "The vector database powering AI search and retrieval.", loc: "34th St · Midtown" },
+  "35d68f92": { blurb: "Automation and robotics for industrial workflows.", loc: "Brooklyn Navy Yard" },
+  bbf65c57: { blurb: "Prompt management and observability for teams building on LLMs.", loc: "E 8th St · Greenwich Village" },
+  "4159bd84": { blurb: "Browser-based coding platform with an AI software agent.", loc: "Fort Greene · Brooklyn" },
+  "711b43ac": { blurb: "Browser-based coding platform with an AI software agent.", loc: "Fort Greene · Brooklyn" },
+  "3a9ece03": { blurb: "Commission-free investing and trading, built mobile-first.", loc: "W 15th St · Chelsea" },
+  "2d741b46": { blurb: "AI analyst platform for investment banking and finance.", loc: "One Vanderbilt · Midtown" },
+  a9e416ad: { blurb: "Infrastructure to run ML workloads across any cloud or compute.", loc: "E 13th St · Greenwich Village" },
+  "66afbf68": { blurb: "Generative AI for video, visual effects, and filmmaking.", loc: "E 12th St · Greenwich Village" },
+  eabcc144: { blurb: "Building new AI-native interfaces and devices.", loc: "Little W 12th St · Meatpacking" },
+  "1e5b0cb0": { blurb: "Ask data questions in plain English across the enterprise.", loc: "Lispenard St · Tribeca" },
+  b9767786: { blurb: "AI for accessible mental and behavioral health support.", loc: "4th Ave · Union Square" },
+  "3cb319a2": { blurb: "Cloud data platform and warehouse for AI workloads.", loc: "W 35th St · Midtown" },
+  "6d76fe02": { blurb: "Audio streaming for music and podcasts worldwide.", loc: "4 WTC · FiDi" },
+  e25f0e91: { blurb: "Generates polished, type-safe SDKs from any API spec.", loc: "Brooklyn Navy Yard" },
+  c3a4e9d6: { blurb: "Pediatric telehealth with AI-assisted visit notes.", loc: "E 20th St · Flatiron" },
+  d05707e8: { blurb: "AI that automates healthcare referrals and patient intake.", loc: "Astor Pl · NoHo" },
+  "together-ai": { blurb: "Cloud platform to train, fine-tune, and run open-source AI models.", loc: "3rd Ave · Midtown East" },
+  f6c37c10: { blurb: "Autonomous accounting and accounts-payable automation.", loc: "E 49th St · Midtown East" },
+  ee75072a: { blurb: "Cloud security platform that finds and fixes risk across the stack.", loc: "W 26th St · Chelsea" },
+};
 
 export const CONTEXT_POINTS = [
   { id: "4d7ccbee", name: "AWS", category: "Big Tech", lat: 40.749712, lng: -73.986496 },
@@ -159,9 +202,9 @@ export const CONTEXT_POINTS = [
   { id: "17c4013b", name: "WeWork FiDi", category: "Coworking", lat: 40.711359, lng: -74.0086065 },
   { id: "8fe130c2", name: "WeWork Irving Place", category: "Coworking", lat: 40.735098, lng: -73.988293 },
   { id: "cd3ac3bd", name: "WeWork SoHo", category: "Coworking", lat: 40.7238093, lng: -73.9999845 },
-  { id: "7e1e122b", name: "AlQuraishi Lab Columbia", category: "Higher Education", lat: 40.8103943, lng: -73.960836 },
+  { id: "7e1e122b", name: "AlQuraishi Lab Columbia", category: "Higher Education", lat: 40.8086, lng: -73.9618 },
   { id: "0a44e57f", name: "Columbia University", category: "Higher Education", lat: 40.8074771, lng: -73.9624001 },
-  { id: "5f9c066b", name: "Cornell Tech", category: "Higher Education", lat: 40.755223, lng: -73.957107 },
+  { id: "5f9c066b", name: "Cornell Tech", category: "Higher Education", lat: 40.7558, lng: -73.9525 },
   { id: "d3bc7158", name: "NYU CILVR", category: "Higher Education", lat: 40.730396, lng: -73.995986 },
   { id: "c2ac6f0c", name: "Betaworks", category: "VCs / Events", lat: 40.740323, lng: -74.007694 },
   { id: "1731cccf", name: "Lux Capital", category: "VCs / Events", lat: 40.739565, lng: -73.989416 },
