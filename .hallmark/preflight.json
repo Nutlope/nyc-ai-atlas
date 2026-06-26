@@ -1,0 +1,8 @@
+{
+  "date": "2026-06-26",
+  "fontStack": "No existing app. Introduced Space Grotesk, Inter, JetBrains Mono.",
+  "palette": "No existing tokens. Introduced Hallmark Cobalt OKLCH tokens.",
+  "motion": "No existing motion system. Introduced Three.js render loop and restrained UI transitions.",
+  "spacing": "No existing spacing scale. Introduced semantic 4pt-compatible tokens.",
+  "framework": "Fresh Vite + Three.js app."
+}

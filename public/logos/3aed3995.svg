@@ -1,0 +1,17 @@
+<svg width="32" height="32" viewBox="6.13 8.37 31.26 31.26" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Borderless Nomic N (shared with the drive-next app). viewBox is tightened vs the app's
+       0 0 48 48 so the mark fills the frame as a favicon (the app pads it for an in-UI chip). -->
+  <style>
+    path {
+      fill: #000000;
+    }
+    @media (prefers-color-scheme: dark) {
+      path {
+        fill: #ffffff;
+      }
+    }
+  </style>
+  <path
+    d="M15.6497 35.7635H9.88281V26.4701C11.5301 25.0744 13.4554 23.9223 15.6497 23.3069V35.7635ZM21.5019 12.2344C22.0491 16.1404 24.3803 19.4743 27.645 21.3865V12.2344H33.6426V35.7635H27.4759C26.0826 32.1254 22.0555 25.2065 15.6497 23.3069L15.65 12.2344H21.5019Z"
+  />
+</svg>

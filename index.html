@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="A 3D interactive atlas of NYC AI startups using Lux Capital's public Airtable and Felt map data."
+    />
+    <title>NYC AI Atlas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./tokens.css" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="app" class="atlas-shell">
+      <canvas id="scene" aria-label="3D interactive map of NYC AI startups"></canvas>
+      <div id="labelsLayer" class="labels-layer" aria-hidden="false"></div>
+
+      <header class="topbar" aria-label="NYC AI Atlas controls">
+        <a class="brand-mark" href="#" aria-label="NYC AI Atlas home">
+          <span class="brand-mark__glyph" aria-hidden="true"></span>
+          <span class="brand-mark__text">NYC AI Atlas</span>
+        </a>
+        <div class="search-wrap" role="search">
+          <label class="sr-only" for="companySearch">Search companies</label>
+          <input id="companySearch" type="search" autocomplete="off" placeholder="Search startups..." />
+          <kbd>⌘</kbd><kbd>K</kbd>
+          <div id="searchResults" class="search-results" hidden></div>
+        </div>
+        <div class="topbar__meta" aria-label="Source attribution">
+          <span>Lux public data</span>
+          <a href="https://airtable.com/appK49oThZBOTSYlX/shr5Chudz00G5jxwW/tblFlqQHeAvsVxLNI" target="_blank" rel="noreferrer">Airtable</a>
+          <a href="https://felt.com/map/LUX-NYC-tki3mxiaS9B2Uc9Bg3EN9BWJB" target="_blank" rel="noreferrer">Felt</a>
+        </div>
+      </header>
+
+      <aside class="legend-panel" aria-label="Neighborhood chapters">
+        <div class="panel-heading">
+          <span class="panel-heading__spark" aria-hidden="true"></span>
+          <div>
+            <p>Lux NYC</p>
+            <h1>AI startup map</h1>
+          </div>
+        </div>
+        <nav id="areaList" class="area-list" aria-label="Explore by area"></nav>
+      </aside>
+
+      <section id="detailCard" class="detail-card" aria-live="polite"></section>
+
+      <div class="control-stack" aria-label="Map display controls">
+        <button id="tourToggle" class="control-btn" type="button">
+          <span>View</span><strong>Tour</strong><span>/ Explore</span>
+        </button>
+        <button id="labelToggle" class="control-btn" type="button">
+          <span>Labels</span><strong>All</strong><span>/ Key</span>
+        </button>
+        <button id="trafficToggle" class="control-btn control-btn--traffic" type="button">
+          <span>Traffic</span><strong>Live</strong>
+        </button>
+      </div>
+
+      <nav id="progressRail" class="progress-rail" aria-label="Tour progress"></nav>
+
+      <aside class="mini-map" aria-label="Mini map">
+        <svg id="miniMapSvg" viewBox="0 0 120 160" role="img" aria-label="Simplified NYC outline and active area">
+          <path
+            class="mini-map__land"
+            d="M48 10 L72 18 L82 48 L76 84 L84 120 L62 148 L42 130 L48 92 L38 56 Z"
+          />
+          <path class="mini-map__brooklyn" d="M76 92 L110 104 L104 150 L66 148 L84 120 Z" />
+          <g id="miniMapPoints"></g>
+        </svg>
+        <p>N ↑ · NYC</p>
+      </aside>
+
+      <footer class="source-line">
+        <span>48 mapped startup points · Lux public data plus user-added Together AI · data current from public pages loaded June 26, 2026</span>
+      </footer>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

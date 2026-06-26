@@ -1,0 +1,54 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Map / Diagram · theme: Cobalt · enrichment: Tier-A 3D map · nav: N13 · footer: Ft2 · tone: technical cinematic · anchor hue: electric cobalt */
+/* Hallmark · pre-emit critique: P5 H4 E4 S5 R4 V5 · slop: pass (rendered responsive/browser checks) */
+:root {
+  --color-paper: oklch(98.5% 0.004 250);
+  --color-paper-2: oklch(95.5% 0.008 250);
+  --color-paper-3: oklch(91% 0.012 252);
+  --color-ink: oklch(18% 0.022 258);
+  --color-ink-2: oklch(28% 0.02 258);
+  --color-muted: oklch(49% 0.018 258);
+  --color-rule: oklch(86% 0.014 252);
+  --color-rule-2: oklch(73% 0.024 252);
+  --color-accent: oklch(58% 0.2 256);
+  --color-accent-2: oklch(68% 0.16 206);
+  --color-accent-ink: oklch(99% 0.003 250);
+  --color-success: oklch(60% 0.15 155);
+  --color-warning: oklch(72% 0.15 84);
+  --color-danger: oklch(58% 0.2 25);
+  --color-graphite: oklch(21% 0.016 260);
+  --color-water: oklch(47% 0.13 232);
+  --color-water-deep: oklch(30% 0.11 238);
+  --color-land: oklch(83% 0.04 92);
+  --color-land-2: oklch(76% 0.055 112);
+  --color-park: oklch(69% 0.12 142);
+  --color-road: oklch(29% 0.014 260);
+  --color-focus: oklch(62% 0.22 256);
+  --font-display: "Space Grotesk", Inter, system-ui, sans-serif;
+  --font-body: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.35rem;
+  --text-2xl: clamp(1.6rem, 2vw + 1rem, 2.6rem);
+  --text-display: clamp(2.2rem, 4vw + 1rem, 5.2rem);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-short: 160ms;
+  --dur-med: 260ms;
+  --dur-long: 600ms;
+  --rule-thin: 1px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+}
