@@ -110,6 +110,7 @@ const birdFleet = [];
 let birdMesh = null;
 const treeBuffer = []; // { x, z, type: "conifer"|"round", scale, rot, colorIndex }
 let hoverCandidate = null;
+let pointerDown = null; // { x, y, item } captured on pointerdown to tell clicks from drags
 
 // Greenery palette: a spread of NYC park greens for per-instance tree color.
 const GREEN_PALETTE = [
@@ -2579,23 +2580,33 @@ function updateMarkerScale(time) {
   });
 }
 
-function onPointerMove(event) {
+function pickMarker(event) {
   pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(markerMeshes, false);
-  const item = hits[0]?.object?.userData?.item;
-  hoverCandidate = item || null;
-  canvas.style.cursor = item ? "pointer" : "grab";
+  return hits[0]?.object?.userData?.item || null;
+}
+
+function onPointerMove(event) {
+  hoverCandidate = pickMarker(event);
+  canvas.style.cursor = hoverCandidate ? "pointer" : "grab";
 }
 
 function onPointerDown(event) {
-  pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(markerMeshes, false);
-  const item = hits[0]?.object?.userData?.item || hoverCandidate;
+  pointerDown = { x: event.clientX, y: event.clientY, item: pickMarker(event) };
+}
+
+// Selection happens on release so an orbit drag never triggers it. A click on
+// a marker selects it; a click on empty map clears the current selection.
+function onPointerUp(event) {
+  if (!pointerDown) return;
+  const moved = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
+  const item = pointerDown.item;
+  pointerDown = null;
+  if (moved > 6) return; // a drag, not a click
   if (item) selectStartup(item.id);
+  else if (state.selectedId) clearSelection();
 }
 
 function renderSearchResults(query) {
@@ -2676,6 +2687,10 @@ function bindEvents() {
 
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", () => {
+    pointerDown = null;
+  });
 
   searchTrigger.addEventListener("click", openSearch);
 
