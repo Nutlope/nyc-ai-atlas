@@ -130,6 +130,43 @@ const colors = {
   buildingDark: new THREE.Color(0x8e9899),
 };
 
+// Near-white concrete mottle multiplied over the land fills: block-scale
+// tonal blotches plus fine speckle, so the ground stops reading as one
+// flat sheet of beige. Generated once; zero per-frame cost.
+function makeGroundTexture() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, 512, 512);
+  const rand = seededRandom(4242);
+  for (let i = 0; i < 70; i += 1) {
+    const r = 36 + rand() * 96;
+    const x = rand() * 512;
+    const y = rand() * 512;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    const warm = rand() > 0.5;
+    g.addColorStop(0, warm ? "rgba(150, 138, 116, 0.05)" : "rgba(96, 104, 116, 0.05)");
+    g.addColorStop(1, "rgba(120, 120, 120, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  for (let i = 0; i < 2400; i += 1) {
+    ctx.fillStyle = `rgba(72, 78, 88, ${0.012 + rand() * 0.03})`;
+    const s = 1 + rand() * 2.4;
+    ctx.fillRect(rand() * 512, rand() * 512, s, s);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(0.22, 0.22);
+  tex.anisotropy = 4;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const groundTexture = makeGroundTexture();
+
 const materials = {
   water: new THREE.MeshStandardMaterial({
     color: 0x1d6fa0,
@@ -138,11 +175,13 @@ const materials = {
   }),
   land: new THREE.MeshStandardMaterial({
     color: colors.land,
+    map: groundTexture,
     roughness: 0.82,
     side: THREE.DoubleSide,
   }),
   landAlt: new THREE.MeshStandardMaterial({
     color: colors.land2,
+    map: groundTexture,
     roughness: 0.9,
     side: THREE.DoubleSide,
   }),
@@ -518,6 +557,38 @@ function scatterTreesInPoly(poly, count, random, opts = {}) {
 }
 
 // Build every queued tree into three instanced meshes (cones, blobs, trunks).
+// Street-tree rows along the avenues New Yorkers would expect them:
+// the Park Avenue median plus the Hudson and East River esplanades.
+function createStreetTrees() {
+  const rows = [
+    { from: [40.7365, -73.9885], to: [40.7825, -73.955], step: 0.8 },
+    { from: [40.7205, -74.0125], to: [40.7575, -73.9985], step: 0.95 },
+    { from: [40.708, -73.996], to: [40.7345, -73.9728], step: 1.05 },
+  ];
+  const random = seededRandom(9001);
+  rows.forEach((row) => {
+    const a = project(row.from[0], row.from[1]);
+    const b = project(row.to[0], row.to[1]);
+    const count = Math.max(2, Math.floor(a.distanceTo(b) / row.step));
+    for (let i = 0; i <= count; i += 1) {
+      const t = i / count;
+      const lat = row.from[0] + (row.to[0] - row.from[0]) * t;
+      const lng = row.from[1] + (row.to[1] - row.from[1]) * t;
+      if (!pointInPoly(lat, lng, MANHATTAN)) continue;
+      if (pointInPoly(lat, lng, CENTRAL_PARK)) continue;
+      const p = project(lat, lng);
+      treeBuffer.push({
+        x: p.x + (random() - 0.5) * 0.16,
+        z: p.z + (random() - 0.5) * 0.16,
+        type: "round",
+        scale: 0.48 + random() * 0.24,
+        rot: random() * Math.PI,
+        colorIndex: Math.floor(random() * GREEN_PALETTE.length),
+      });
+    }
+  });
+}
+
 function buildTrees() {
   if (!treeBuffer.length) return;
   const conifers = treeBuffer.filter((t) => t.type === "conifer");
@@ -968,9 +1039,35 @@ function createFerries() {
   routes.forEach((route, index) => {
     const points = route.path.map(([lat, lng]) => project(lat, lng, 0.1));
     const mesh = createFerryMesh(route.color);
+    mesh.add(createWake());
     scene.add(mesh);
     ferryFleet.push({ mesh, path: points, t: index * 0.43, speed: 0.013 + index * 0.004, lane: 0 });
   });
+}
+
+// A soft white trail that rides behind each ferry; static texture, no
+// per-frame updates, it just travels with its parent.
+function createWake() {
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 128;
+  const ctx = c.getContext("2d");
+  // After the plane is laid flat (rotation.x = -PI/2) the canvas bottom edge
+  // faces the stern, so the bright end of the trail lives at y = 128.
+  const grad = ctx.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0, "rgba(255,255,255,0)");
+  grad.addColorStop(0.65, "rgba(255,255,255,0.3)");
+  grad.addColorStop(1, "rgba(255,255,255,0.75)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 128);
+  const tex = new THREE.CanvasTexture(c);
+  const wake = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.42, 1.7),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.55, depthWrite: false }),
+  );
+  wake.rotation.x = -Math.PI / 2;
+  wake.position.set(0, -0.05, -1.25);
+  return wake;
 }
 
 function createPlaneMesh() {
@@ -1199,6 +1296,13 @@ function createBuildings() {
   windowMesh.receiveShadow = true;
   let windowCount = 0;
 
+  // Rooftop detail collected during the main pass, instanced afterwards:
+  // wedding-cake setback tiers, wooden water tanks, and AC units.
+  const tiers = [];
+  const tanks = [];
+  const acUnits = [];
+  const rooftopOffset = new THREE.Vector3();
+
   instances.forEach((box, index) => {
     pos.set(box.x, box.h / 2, box.z);
     quat.setFromAxisAngle(UP, box.rot);
@@ -1213,9 +1317,27 @@ function createBuildings() {
     color.copy(tone).offsetHSL(0, 0, (box.shade - 0.5) * 0.06);
     mesh.setColorAt(index, color);
 
+    // Classic NYC setback: taller towers step in for their top section.
+    const tiered = box.h > 2.6 && box.roof > 0.35;
+    if (tiered) {
+      tiers.push({
+        x: box.x,
+        z: box.z,
+        rot: box.rot,
+        w: box.w * 0.62,
+        d: box.d * 0.62,
+        y: box.h,
+        h: Math.min(1.6, box.h * 0.28),
+        color: color.clone().offsetHSL(0, 0, 0.03),
+      });
+    }
+    const roofTopY = tiered ? box.h + tiers[tiers.length - 1].h : box.h;
+    const roofW = tiered ? box.w * 0.62 : box.w;
+    const roofD = tiered ? box.d * 0.62 : box.d;
+
     if (box.roof > 0.5 || box.h > 4.4) {
-      pos.set(box.x, box.h + 0.08, box.z);
-      scale.set(box.w * (0.46 + box.roof * 0.28), 0.12, box.d * (0.44 + box.roof * 0.26));
+      pos.set(box.x, roofTopY + 0.08, box.z);
+      scale.set(roofW * (0.46 + box.roof * 0.28), 0.12, roofD * (0.44 + box.roof * 0.26));
       matrix.compose(pos, quat, scale);
       roofMesh.setMatrixAt(roofCount, matrix);
       // Mostly muted slate/gravel; ~30% get a warmer terracotta/red/green pop.
@@ -1223,6 +1345,21 @@ function createBuildings() {
       roofColor.copy(roofPalette[warm ? 2 + (Math.floor(box.roof * 3) % 3) : box.roof > 0.5 ? 0 : 5]);
       roofMesh.setColorAt(roofCount, roofColor);
       roofCount += 1;
+    }
+
+    // Wooden water tanks on a share of the mid-rise stock, AC boxes on most
+    // roofs: the two props that make aerial NYC read as NYC.
+    if (!tiered && box.h > 1.05 && box.h <= 2.6 && box.roof > 0.58) {
+      rooftopOffset.set(box.w * 0.2, 0, box.d * 0.16).applyAxisAngle(UP, box.rot);
+      tanks.push({ x: box.x + rooftopOffset.x, z: box.z + rooftopOffset.z, y: box.h, s: 0.8 + box.shade * 0.5 });
+    }
+    if (box.h > 0.85 && box.shade > 0.42) {
+      rooftopOffset.set(-box.w * 0.21, 0, box.d * 0.2).applyAxisAngle(UP, box.rot);
+      acUnits.push({ x: box.x + rooftopOffset.x, z: box.z + rooftopOffset.z, y: roofTopY, rot: box.rot });
+      if (box.shade > 0.78 && !tiered) {
+        rooftopOffset.set(box.w * 0.24, 0, -box.d * 0.18).applyAxisAngle(UP, box.rot);
+        acUnits.push({ x: box.x + rooftopOffset.x, z: box.z + rooftopOffset.z, y: box.h, rot: box.rot + 0.5 });
+      }
     }
 
     if (box.h > 1.7) {
@@ -1251,6 +1388,63 @@ function createBuildings() {
   windowMesh.count = windowCount;
   scene.add(windowMesh);
 
+  if (tiers.length) {
+    const tierMesh = new THREE.InstancedMesh(geometry, buildingMaterial, tiers.length);
+    tierMesh.castShadow = true;
+    tierMesh.receiveShadow = true;
+    tiers.forEach((tier, i) => {
+      pos.set(tier.x, tier.y + tier.h / 2, tier.z);
+      quat.setFromAxisAngle(UP, tier.rot);
+      scale.set(tier.w, tier.h, tier.d);
+      matrix.compose(pos, quat, scale);
+      tierMesh.setMatrixAt(i, matrix);
+      tierMesh.setColorAt(i, tier.color);
+    });
+    scene.add(tierMesh);
+  }
+
+  if (tanks.length) {
+    const barrelMesh = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.075, 0.088, 0.17, 8),
+      new THREE.MeshStandardMaterial({ color: 0x82603f, roughness: 0.85 }),
+      tanks.length,
+    );
+    const lidMesh = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(0.09, 0.075, 8),
+      new THREE.MeshStandardMaterial({ color: 0x54402c, roughness: 0.8 }),
+      tanks.length,
+    );
+    barrelMesh.castShadow = true;
+    lidMesh.castShadow = true;
+    quat.identity();
+    tanks.forEach((tank, i) => {
+      scale.setScalar(tank.s);
+      pos.set(tank.x, tank.y + 0.085 * tank.s, tank.z);
+      matrix.compose(pos, quat, scale);
+      barrelMesh.setMatrixAt(i, matrix);
+      pos.set(tank.x, tank.y + (0.17 + 0.037) * tank.s, tank.z);
+      matrix.compose(pos, quat, scale);
+      lidMesh.setMatrixAt(i, matrix);
+    });
+    scene.add(barrelMesh);
+    scene.add(lidMesh);
+  }
+
+  if (acUnits.length) {
+    const acMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(0.095, 0.05, 0.075),
+      new THREE.MeshStandardMaterial({ color: 0xc3c8ce, roughness: 0.7 }),
+      acUnits.length,
+    );
+    acUnits.forEach((unit, i) => {
+      pos.set(unit.x, unit.y + 0.025, unit.z);
+      quat.setFromAxisAngle(UP, unit.rot);
+      scale.setScalar(1);
+      matrix.compose(pos, quat, scale);
+      acMesh.setMatrixAt(i, matrix);
+    });
+    scene.add(acMesh);
+  }
 }
 
 // Helper: a tapered tower with optional setbacks. Returns top Y.
@@ -1682,7 +1876,8 @@ function createCarMesh(color) {
 }
 
 function createVehicles(roadPaths) {
-  const carColors = [0xe54c42, 0x2e6cff, 0xf2c14e, 0x30b37c, 0xf4f1e8];
+  // Weighted toward taxi yellow: roughly 4 in 10 cars read as NYC cabs.
+  const carColors = [0xf7b500, 0xe54c42, 0xf7b500, 0x2e6cff, 0xf7b500, 0x30b37c, 0xf4f1e8, 0xf7b500, 0x3c414b, 0x2e6cff];
   const random = seededRandom(700);
   for (let i = 0; i < 34; i += 1) {
     const mesh = createCarMesh(carColors[i % carColors.length]);
@@ -2535,6 +2730,7 @@ function animate() {
 function init() {
   createLights();
   createBaseMap();
+  createStreetTrees();
   buildTrees();
   const roadPaths = createRoadsAndRails();
   createSubwayLayer();
