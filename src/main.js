@@ -102,6 +102,8 @@ const vehicleFleet = [];
 const ferryFleet = [];
 const planeFleet = [];
 const subwayFleet = [];
+const birdFleet = [];
+let birdMesh = null;
 const treeBuffer = []; // { x, z, type: "conifer"|"round", scale, rot, colorIndex }
 let hoverCandidate = null;
 
@@ -368,16 +370,58 @@ function createLights() {
   scene.add(hemi);
 
   const sun = new THREE.DirectionalLight(0xfff2d6, 3.2);
-  sun.position.set(-36, 70, 42);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 2;
-  sun.shadow.camera.far = 180;
+  sun.shadow.camera.far = 220;
+  // The city footprint spans roughly x [-45, 55], z [-110, 45], so the shadow
+  // box is recentered on it (the old origin-centered box cut Harlem off).
+  // The bias pair removes acne/peter-panning on the box facades.
   sun.shadow.camera.left = -80;
   sun.shadow.camera.right = 80;
   sun.shadow.camera.top = 80;
   sun.shadow.camera.bottom = -80;
+  sun.shadow.bias = -0.00035;
+  sun.shadow.normalBias = 0.02;
+  sun.target.position.set(5, 0, -32);
+  sun.position.set(5 - 36, 70, -32 + 42);
+  scene.add(sun.target);
   scene.add(sun);
+
+  createSunGlow();
+}
+
+// A single additive glow sprite hanging in the sun's direction: gives the
+// sky a light source and the haze a reason, for the cost of one sprite.
+function createSunGlow() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, "rgba(255, 247, 224, 0.95)");
+  g.addColorStop(0.22, "rgba(255, 238, 200, 0.5)");
+  g.addColorStop(0.55, "rgba(255, 228, 184, 0.16)");
+  g.addColorStop(1, "rgba(255, 228, 184, 0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+    }),
+  );
+  // Same azimuth as the sun light, dropped near the horizon so orbiting
+  // cameras actually catch it over the Hudson.
+  sprite.position.set(-150, 96, 175);
+  sprite.scale.setScalar(150);
+  scene.add(sprite);
 }
 
 function createShoreline(coords) {
@@ -1027,6 +1071,23 @@ function buildingAllowed(lat, lng) {
   return true;
 }
 
+// Bake a "street canyon" gradient into a unit box: vertices near the base get
+// darker vertex colors, which multiply with per-instance colors for free
+// ambient-occlusion-style grounding (no per-frame cost).
+function bakeBaseShade(geometry, floor = 0.78) {
+  const pos = geometry.attributes.position;
+  const shades = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i += 1) {
+    const t = Math.min(1, Math.max(0, (pos.getY(i) + 0.5) / 0.45));
+    const shade = floor + (1 - floor) * t;
+    shades[i * 3] = shade;
+    shades[i * 3 + 1] = shade;
+    shades[i * 3 + 2] = shade;
+  }
+  geometry.setAttribute("color", new THREE.BufferAttribute(shades, 3));
+  return geometry;
+}
+
 function createBuildings() {
   const random = seededRandom(43);
   const instances = [];
@@ -1068,8 +1129,12 @@ function createBuildings() {
   const fadedBoxes = instances.filter((b) => b.faded);
   const solidBoxes = instances.filter((b) => !b.faded);
   if (fadedBoxes.length) {
-    const ghostGeo = new THREE.BoxGeometry(1, 1, 1);
-    const ghostMesh = new THREE.InstancedMesh(ghostGeo, materials.ghost, fadedBoxes.length);
+    const ghostGeo = bakeBaseShade(new THREE.BoxGeometry(1, 1, 1), 0.88);
+    // Clone: landmark blocks reuse these materials with plain geometry, and
+    // vertexColors on a geometry without a color attribute renders black.
+    const ghostMaterial = materials.ghost.clone();
+    ghostMaterial.vertexColors = true;
+    const ghostMesh = new THREE.InstancedMesh(ghostGeo, ghostMaterial, fadedBoxes.length);
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const s = new THREE.Vector3();
@@ -1089,8 +1154,10 @@ function createBuildings() {
   instances.length = 0;
   instances.push(...solidBoxes);
 
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const mesh = new THREE.InstancedMesh(geometry, materials.building, instances.length);
+  const geometry = bakeBaseShade(new THREE.BoxGeometry(1, 1, 1));
+  const buildingMaterial = materials.building.clone();
+  buildingMaterial.vertexColors = true;
+  const mesh = new THREE.InstancedMesh(geometry, buildingMaterial, instances.length);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   const matrix = new THREE.Matrix4();
@@ -1674,6 +1741,74 @@ function updateTransit(delta) {
     vehicle.mesh.rotation.y = Math.atan2(tangent.x, tangent.z);
     vehicle.mesh.rotation.z = Math.sin(vehicle.t * Math.PI * 2) * 0.08;
   });
+}
+
+// A dozen gulls circling the parks and the harbor: one instanced chevron
+// mesh, one draw call, a handful of matrix updates per frame.
+function createBirds() {
+  const wing = new Float32Array([
+    // left wing
+    0, 0, 0.16, -0.5, 0.12, -0.12, -0.05, 0, -0.06,
+    // right wing
+    0, 0, 0.16, 0.05, 0, -0.06, 0.5, 0.12, -0.12,
+  ]);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(wing, 3));
+  const material = new THREE.MeshBasicMaterial({ color: 0x2b3038, side: THREE.DoubleSide });
+
+  const flocks = [
+    { lat: 40.781, lng: -73.9665, alt: 6.4, radius: 4.6, count: 5 }, // Central Park
+    { lat: 40.696, lng: -74.021, alt: 4.6, radius: 5.2, count: 4 }, // the harbor
+    { lat: 40.7003, lng: -73.9955, alt: 5.2, radius: 3.4, count: 3 }, // Brooklyn Bridge
+  ];
+  const random = seededRandom(77);
+  flocks.forEach((flock) => {
+    const center = project(flock.lat, flock.lng, flock.alt);
+    for (let i = 0; i < flock.count; i += 1) {
+      birdFleet.push({
+        center,
+        radius: flock.radius * (0.72 + random() * 0.5),
+        alt: flock.alt + (random() - 0.5) * 1.6,
+        speed: (0.24 + random() * 0.2) * (random() < 0.5 ? 1 : -1),
+        phase: random() * Math.PI * 2,
+        flapHz: 5 + random() * 2.5,
+        size: 0.44 + random() * 0.22,
+      });
+    }
+  });
+
+  birdMesh = new THREE.InstancedMesh(geo, material, birdFleet.length);
+  birdMesh.frustumCulled = false;
+  scene.add(birdMesh);
+}
+
+const birdMatrix = new THREE.Matrix4();
+const birdQuat = new THREE.Quaternion();
+const birdEuler = new THREE.Euler();
+const birdPos = new THREE.Vector3();
+const birdScale = new THREE.Vector3();
+
+function updateBirds(elapsed) {
+  if (!birdMesh) return;
+  birdFleet.forEach((bird, i) => {
+    const dir = Math.sign(bird.speed);
+    const theta = bird.phase + elapsed * Math.abs(bird.speed) * dir;
+    birdPos.set(
+      bird.center.x + Math.cos(theta) * bird.radius,
+      bird.alt + Math.sin(elapsed * 1.1 + bird.phase) * 0.5,
+      bird.center.z + Math.sin(theta) * bird.radius,
+    );
+    // Face along the circle's tangent, banked gently into the turn.
+    const heading = Math.atan2(-Math.sin(theta) * dir, Math.cos(theta) * dir) + Math.PI / 2;
+    birdEuler.set(0, heading, 0.3 * dir, "YXZ");
+    birdQuat.setFromEuler(birdEuler);
+    // Wing flap: squash/stretch the chevron height.
+    const flap = 0.25 + Math.abs(Math.sin(elapsed * bird.flapHz + bird.phase)) * 1.35;
+    birdScale.set(bird.size, bird.size * flap, bird.size);
+    birdMatrix.compose(birdPos, birdQuat, birdScale);
+    birdMesh.setMatrixAt(i, birdMatrix);
+  });
+  birdMesh.instanceMatrix.needsUpdate = true;
 }
 
 function createClouds() {
@@ -2278,6 +2413,7 @@ function animate() {
   updateVehicles(delta);
   updateTransit(delta);
   updateClouds(delta);
+  updateBirds(elapsed);
   updateMarkerScale(elapsed);
   updateFocusFx(elapsed, delta);
   controls.update();
@@ -2300,6 +2436,7 @@ function init() {
   createFerries();
   createPlanes();
   createClouds();
+  createBirds();
   createLabels();
   renderAreaList();
   renderMiniMap();
