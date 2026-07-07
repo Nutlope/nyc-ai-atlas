@@ -12,7 +12,7 @@ export const AREAS = [
     shortLabel: "Whole Board",
     focus: { lat: 40.7278, lng: -73.9955, distance: 88, height: 62, rotation: 0.64 },
     description:
-      "45 AI companies, 8 neighborhoods, one city. Frontier labs, creative tools, infrastructure, fintech, and health — mapped block by block across Manhattan and Brooklyn.",
+      "45 AI companies, 8 neighborhoods, one city. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
   },
   {
     id: "midtown",
@@ -21,7 +21,7 @@ export const AREAS = [
     shortLabel: "Midtown",
     focus: { lat: 40.7504, lng: -73.9847, distance: 36, height: 31, rotation: 0.36 },
     description:
-      "The heavyweight corridor. Infrastructure and media names — voice AI, data platforms, dev tooling — anchored to the Grand Central transit spine.",
+      "The heavyweight corridor. Infrastructure and media names (voice AI, data platforms, dev tooling) anchored to the Grand Central transit spine.",
   },
   {
     id: "flatiron",
@@ -30,7 +30,7 @@ export const AREAS = [
     shortLabel: "Flatiron",
     focus: { lat: 40.7352, lng: -73.9902, distance: 30, height: 26, rotation: 0.44 },
     description:
-      "The densest few blocks on the map. Dozens of early-stage teams — creative AI, automation, and developer tools — packed within a short walk of Union Square.",
+      "The densest few blocks on the map. Dozens of early-stage teams building creative AI, automation, and developer tools, packed within a short walk of Union Square.",
   },
   {
     id: "west-side",
@@ -57,7 +57,7 @@ export const AREAS = [
     shortLabel: "FiDi",
     focus: { lat: 40.7071, lng: -74.0097, distance: 34, height: 27, rotation: 0.9 },
     description:
-      "Lower Manhattan skews legal, financial, and industrial — regulated-world AI built in the shadow of Wall Street.",
+      "Lower Manhattan skews legal, financial, and industrial: regulated-world AI built in the shadow of Wall Street.",
   },
   {
     id: "brooklyn",
@@ -66,7 +66,7 @@ export const AREAS = [
     shortLabel: "Brooklyn",
     focus: { lat: 40.6995, lng: -73.982, distance: 46, height: 28, rotation: 1.18 },
     description:
-      "Across the East River through DUMBO, Williamsburg, and the Navy Yard — open-source, hardware, and marketplace teams with room to build.",
+      "Across the East River through DUMBO, Williamsburg, and the Navy Yard: open-source, hardware, and marketplace teams with room to build.",
   },
   {
     id: "capital",
@@ -75,7 +75,7 @@ export const AREAS = [
     shortLabel: "Capital",
     focus: { lat: 40.735, lng: -73.9948, distance: 58, height: 42, rotation: 0.62 },
     description:
-      "The support layer — the VCs, big-tech offices, coworking spaces, and university labs that explain why the startups cluster where they do.",
+      "The support layer: the VCs, big-tech offices, coworking spaces, and university labs that explain why the startups cluster where they do.",
   },
 ];
 

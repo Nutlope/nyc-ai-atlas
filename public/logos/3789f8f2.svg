@@ -1,9 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
 	<style>
 		.favicon { fill: #212121; }
-		@media (prefers-color-scheme: dark) {
-			.favicon { fill: #F5F5F5; }
-		}
+		
 	</style>
 	<path class="favicon" d="M2 2h2v2H2V2Zm3 2h3V2H5v2Zm4-2v2h5V2H9ZM2 8h2V5H2v3Zm3 0h3V5H5v3Zm4 0h5V5H9v3Zm-7 6h2V9H2v5Zm3 0h3V9H5v5Zm4 0h5V9H9v5Z"/>
 </svg>

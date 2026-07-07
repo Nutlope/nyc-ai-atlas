@@ -3,3 +3,5 @@ dist/
 .pnpm-store/
 .DS_Store
 .vercel
+.claude/
+package-lock.json

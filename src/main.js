@@ -33,7 +33,6 @@ const canvas = document.querySelector("#scene");
 const labelsLayer = document.querySelector("#labelsLayer");
 const areaList = document.querySelector("#areaList");
 const detailCard = document.querySelector("#detailCard");
-const progressRail = document.querySelector("#progressRail");
 const miniMapPoints = document.querySelector("#miniMapPoints");
 const searchInput = document.querySelector("#companySearch");
 const searchResults = document.querySelector("#searchResults");
@@ -42,7 +41,11 @@ const searchModal = document.querySelector("#searchModal");
 let searchActiveIndex = -1;
 const labelToggle = document.querySelector("#labelToggle");
 
-const HORIZON = 0xcfe6f2; // pale sky at the horizon — fog fades toward this
+// Active-area description, moved under the selected row in the rail.
+const areaDescEl = document.createElement("p");
+areaDescEl.className = "area-desc";
+
+const HORIZON = 0xcfe6f2; // pale sky at the horizon; fog fades toward this
 
 function makeSkyTexture() {
   const c = document.createElement("canvas");
@@ -102,7 +105,7 @@ const subwayFleet = [];
 const treeBuffer = []; // { x, z, type: "conifer"|"round", scale, rot, colorIndex }
 let hoverCandidate = null;
 
-// Greenery palette — a spread of NYC park greens for per-instance tree color.
+// Greenery palette: a spread of NYC park greens for per-instance tree color.
 const GREEN_PALETTE = [
   0x3b7437, 0x4f9652, 0x5ba350, 0x6fae4f, 0x86c263, 0x9bcf78, 0x6b9b3c,
 ].map((c) => new THREE.Color(c));
@@ -1298,7 +1301,7 @@ function createLandmarks() {
     scene.add(drum);
   }
 
-  // --- The Vessel (Hudson Yards) — copper honeycomb cone ---
+  // --- The Vessel (Hudson Yards): copper honeycomb cone ---
   {
     const vp = project(LANDMARKS.vessel.lat, LANDMARKS.vessel.lng);
     const vessel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.28, 0.9, 12, 1, true), materials.copper);
@@ -1350,7 +1353,7 @@ function createLandmarks() {
     addLandmarkLabel("Statue of Liberty", LANDMARKS.statueLiberty.lat, LANDMARKS.statueLiberty.lng, 2.6);
   }
 
-  // --- Oculus (WTC transit hub) — ribbed white ellipsoid ---
+  // --- Oculus (WTC transit hub): ribbed white ellipsoid ---
   {
     const op = project(LANDMARKS.oculus.lat, LANDMARKS.oculus.lng);
     const oculus = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 8), stone);
@@ -1435,6 +1438,113 @@ function createContextMarker(item) {
 function createMarkers() {
   STARTUPS.forEach(createMarker);
   CONTEXT_POINTS.forEach(createContextMarker);
+}
+
+/* ---------------------------------------------------------------- */
+/* Cinematic selection: spotlight beam, pulse rings, focus easing    */
+/* ---------------------------------------------------------------- */
+
+const FOG_BASE = scene.fog.density;
+const FOG_FOCUS = FOG_BASE * 1.38;
+const FOV_BASE = camera.fov;
+const FOV_FOCUS = FOV_BASE - 3;
+const FOCUS_COLOR = 0x3a6bff;
+let fogTarget = FOG_BASE;
+let fovTarget = FOV_BASE;
+let focusFx = null;
+
+function makeBeamTexture() {
+  const c = document.createElement("canvas");
+  c.width = 4;
+  c.height = 128;
+  const ctx = c.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 128, 0, 0);
+  grad.addColorStop(0, "rgba(255,255,255,0.85)");
+  grad.addColorStop(0.55, "rgba(255,255,255,0.26)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 4, 128);
+  return new THREE.CanvasTexture(c);
+}
+
+function ensureFocusFx() {
+  if (focusFx) return focusFx;
+  const group = new THREE.Group();
+  group.visible = false;
+
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.55, 0.4, 7.5, 20, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: FOCUS_COLOR,
+      map: makeBeamTexture(),
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  beam.position.y = 3.75;
+  group.add(beam);
+
+  // Two expanding ground rings, half a cycle apart, for a continuous pulse.
+  const rings = [0, 1].map((i) => {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.5, 0.6, 40),
+      new THREE.MeshBasicMaterial({
+        color: FOCUS_COLOR,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.06;
+    ring.userData.phase = i * 0.5;
+    group.add(ring);
+    return ring;
+  });
+
+  scene.add(group);
+  focusFx = { group, beam, rings };
+  return focusFx;
+}
+
+function engageFocus(startup) {
+  const fx = ensureFocusFx();
+  const p = project(startup.lat, startup.lng);
+  fx.group.position.set(p.x, 0.05, p.z);
+  fx.group.visible = true;
+  fogTarget = FOG_FOCUS;
+  fovTarget = FOV_FOCUS;
+}
+
+function releaseFocus() {
+  if (focusFx) focusFx.group.visible = false;
+  fogTarget = FOG_BASE;
+  fovTarget = FOV_BASE;
+}
+
+function updateFocusFx(elapsed, delta) {
+  // Ease fog density and FOV toward their targets for a soft push-in.
+  scene.fog.density += (fogTarget - scene.fog.density) * Math.min(1, delta * 2.6);
+  const fovStep = (fovTarget - camera.fov) * Math.min(1, delta * 3);
+  if (Math.abs(fovStep) > 0.0004) {
+    camera.fov += fovStep;
+    camera.updateProjectionMatrix();
+  }
+
+  if (!focusFx || !focusFx.group.visible) return;
+  focusFx.beam.material.opacity = 0.42 + Math.sin(elapsed * 2.1) * 0.1;
+  focusFx.beam.rotation.y = elapsed * 0.4;
+  focusFx.rings.forEach((ring) => {
+    const t = (elapsed * 0.62 + ring.userData.phase) % 1;
+    const scale = 1 + t * 2.3;
+    ring.scale.setScalar(scale);
+    ring.material.opacity = 0.5 * (1 - t) * (1 - t);
+  });
 }
 
 function createCarMesh(color) {
@@ -1626,7 +1736,7 @@ function createLabels() {
     button.dataset.stage = startup.stage ?? "";
     button.style.setProperty("--label-color", startup.stage === "Public" ? "var(--color-warning)" : startup.stage === "Late-Stage" ? "var(--color-accent-2)" : "var(--color-success)");
     button.innerHTML = `
-      <img class="marker-label__logo" src="${escapeHtml(logoPath(startup))}" alt="" loading="lazy" decoding="async">
+      <img class="marker-label__logo" src="${escapeHtml(logoPath(startup))}" alt="" loading="lazy" decoding="async" draggable="false">
       <span>${escapeHtml(startup.name)}</span>
       ${startup.stage ? `<small>${escapeHtml(startup.stage.replace("-Stage", ""))}</small>` : ""}
     `;
@@ -1673,6 +1783,7 @@ function updateLabels() {
     const selected = state.selectedId === startup.id;
 
     label.classList.toggle("is-muted", activeArea !== "all" && !activeItems.has(startup.id));
+    label.classList.toggle("is-dimmed", Boolean(state.selectedId) && !selected);
     label.classList.toggle("is-selected", selected);
 
     const show = visibleOnScreen && showByMode;
@@ -1787,19 +1898,6 @@ function renderAreaList() {
   });
 }
 
-function renderProgressRail() {
-  progressRail.innerHTML = "";
-  AREAS.forEach((area) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "progress-dot";
-    button.dataset.area = area.id;
-    button.setAttribute("aria-label", area.label);
-    button.addEventListener("click", () => setActiveArea(area.id));
-    progressRail.appendChild(button);
-  });
-}
-
 function miniMapPosition(item) {
   const x = 12 + ((item.lng + 74.028) / 0.082) * 96;
   const y = 10 + ((40.765 - item.lat) / 0.082) * 135;
@@ -1824,19 +1922,32 @@ function updateUiState() {
   document.querySelectorAll(".area-button").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.area === state.activeAreaId);
   });
-  document.querySelectorAll(".progress-dot").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.area === state.activeAreaId);
-  });
   document.querySelectorAll(".mini-point").forEach((point) => {
     const item = STARTUPS.find((startup) => startup.id === point.dataset.id);
     point.classList.toggle("is-active", item?.area === state.activeAreaId || state.activeAreaId === "all");
   });
-  labelToggle.querySelector("strong").textContent = state.labelsMode === "all" ? "All" : "Curated";
+  labelToggle.querySelectorAll("button").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.mode === state.labelsMode);
+  });
+  document.body.classList.toggle("is-focused", Boolean(state.selectedId));
+
+  // Slide the active area's description in right below its row.
+  const activeButton = areaList.querySelector(`.area-button[data-area="${state.activeAreaId}"]`);
+  const area = AREA_BY_ID[state.activeAreaId];
+  if (activeButton && area) {
+    areaDescEl.textContent = area.description;
+    activeButton.insertAdjacentElement("afterend", areaDescEl);
+  } else {
+    areaDescEl.remove();
+  }
 }
 
 function setActiveArea(areaId, { keepSelection = false } = {}) {
   state.activeAreaId = areaId;
-  if (!keepSelection) state.selectedId = null;
+  if (!keepSelection) {
+    state.selectedId = null;
+    releaseFocus();
+  }
   const area = AREA_BY_ID[areaId];
   flyTo(area.focus);
   renderAreaDetail(area);
@@ -1848,32 +1959,15 @@ function selectStartup(id) {
   if (!startup) return;
   state.selectedId = id;
   state.activeAreaId = startup.area;
-  flyTo({ lat: startup.lat, lng: startup.lng, distance: 18, height: 16, rotation: 0.72 });
+  flyTo({ lat: startup.lat, lng: startup.lng, distance: 18, height: 16, rotation: 0.72 }, { cinematic: true });
+  engageFocus(startup);
   renderStartupDetail(startup);
   updateUiState();
 }
 
-function renderAreaDetail(area) {
-  detailCard.classList.remove("is-hidden");
-  // The "Whole Board" is the landing screen — it doubles as a how-to-explore guide.
-  const onboarding =
-    area.id === "all"
-      ? `
-        <div class="onboard">
-          <p class="onboard__lead">How to explore</p>
-          <ul class="onboard__list">
-            <li><span class="onboard__keys"><kbd>↑</kbd><kbd>↓</kbd></span><span>Step through the 8 neighborhoods</span></li>
-            <li><span class="onboard__keys"><kbd>⌘</kbd><kbd>K</kbd></span><span>Search any company by name or sector</span></li>
-            <li><span class="onboard__keys onboard__keys--click">click</span><span>Tap a pin, the list at left, or the timeline at right</span></li>
-          </ul>
-        </div>`
-      : "";
-  detailCard.innerHTML = `
-    <p class="detail-card__kicker">${escapeHtml(area.number)} / ${escapeHtml(area.shortLabel)}</p>
-    <h2>${escapeHtml(area.label)}</h2>
-    <p class="detail-card__blurb">${escapeHtml(area.description)}</p>
-    ${onboarding}
-  `;
+function renderAreaDetail() {
+  // Area context lives inline in the rail now; the floating card is for companies only.
+  detailCard.classList.add("is-hidden");
 }
 
 function renderStartupDetail(startup) {
@@ -1885,9 +1979,6 @@ function renderStartupDetail(startup) {
     `${startup.sector || "An AI company"} on the New York City map.`;
   const loc = info.loc || AREA_BY_ID[startup.area]?.shortLabel || "New York City";
 
-  // Chip row: stage + office only (sector is the subtitle, location is a fact).
-  const tags = [startup.stage, startup.office].filter(Boolean);
-
   let host = "";
   if (url) {
     try {
@@ -1897,37 +1988,23 @@ function renderStartupDetail(startup) {
     }
   }
 
+  const meta = [startup.stage ? startup.stage.replace("-Stage", " stage") : null, startup.office, loc]
+    .filter(Boolean)
+    .join(" · ");
+
   detailCard.classList.remove("is-hidden");
   detailCard.innerHTML = `
     <button class="detail-card__close" type="button" aria-label="Close">&times;</button>
-    <div class="detail-card__title">
-      <img class="detail-card__logo" src="${escapeHtml(logoPath(startup))}" alt="" loading="lazy" decoding="async">
+    <div class="detail-card__head">
+      <img class="detail-card__logo" src="${escapeHtml(logoPath(startup))}" alt="" loading="lazy" decoding="async" draggable="false">
       <div class="detail-card__heading">
         <h2>${escapeHtml(startup.name)}</h2>
         ${startup.sector && startup.sector !== "Mapped startup" ? `<p class="detail-card__sector">${escapeHtml(startup.sector)}</p>` : ""}
       </div>
     </div>
     <p class="detail-card__blurb">${escapeHtml(blurb)}</p>
-    <div class="detail-card__facts">
-      <div class="detail-fact">
-        <span class="detail-fact__icon" aria-hidden="true">📍</span>
-        <span>${escapeHtml(loc)}</span>
-      </div>
-    </div>
-    ${
-      tags.length
-        ? `<div class="detail-card__meta">${tags
-            .map((item) => `<span class="detail-chip">${escapeHtml(item)}</span>`)
-            .join("")}</div>`
-        : ""
-    }
-    ${
-      url
-        ? `<div class="detail-card__actions">
-      <a class="detail-card__link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Visit ${escapeHtml(host || "website")} ↗</a>
-    </div>`
-        : ""
-    }
+    ${meta ? `<p class="detail-card__meta">${escapeHtml(meta)}</p>` : ""}
+    ${url ? `<a class="detail-card__link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(host || "Visit website")} ↗</a>` : ""}
   `;
   const closeBtn = detailCard.querySelector(".detail-card__close");
   if (closeBtn) closeBtn.addEventListener("click", () => clearSelection());
@@ -1935,6 +2012,7 @@ function renderStartupDetail(startup) {
 
 function clearSelection() {
   state.selectedId = null;
+  releaseFocus();
   const area = AREA_BY_ID[state.activeAreaId] || AREA_BY_ID.all;
   renderAreaDetail(area);
   updateUiState();
@@ -1953,16 +2031,32 @@ function cameraDestination(focus) {
   return { target, position };
 }
 
-function flyTo(focus) {
+function flyTo(focus, { cinematic = false } = {}) {
   const destination = cameraDestination(focus);
-  state.flight = {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const flight = {
     startTime: performance.now(),
-    duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 120 : 1300,
+    duration: reduced ? 120 : cinematic ? 1900 : 1300,
     fromPos: camera.position.clone(),
     fromTarget: controls.target.clone(),
     toPos: destination.position,
     toTarget: destination.target,
   };
+
+  // Startup selections dolly along a lift -> arc -> settle curve instead of a
+  // straight lerp, so flying across the city reads like a camera move.
+  if (cinematic && !reduced) {
+    const from = flight.fromPos.clone();
+    const to = flight.toPos.clone();
+    const dist = from.distanceTo(to);
+    const lift = Math.min(30, 8 + dist * 0.34);
+    const mid1 = from.clone().lerp(to, 0.28);
+    mid1.y = Math.max(from.y, to.y) + lift;
+    const mid2 = from.clone().lerp(to, 0.8);
+    mid2.y = to.y + lift * 0.42;
+    flight.path = new THREE.CatmullRomCurve3([from, mid1, mid2, to], false, "centripetal");
+  }
+  state.flight = flight;
 }
 
 function updateFlight() {
@@ -1970,27 +2064,31 @@ function updateFlight() {
   const elapsed = performance.now() - state.flight.startTime;
   const raw = Math.min(1, elapsed / state.flight.duration);
   const t = 1 - Math.pow(1 - raw, 3);
-  camera.position.lerpVectors(state.flight.fromPos, state.flight.toPos, t);
+  if (state.flight.path) camera.position.copy(state.flight.path.getPointAt(t));
+  else camera.position.lerpVectors(state.flight.fromPos, state.flight.toPos, t);
   controls.target.lerpVectors(state.flight.fromTarget, state.flight.toTarget, t);
   if (raw >= 1) state.flight = null;
 }
 
 function updateMarkerScale(time) {
   const activeItems = new Set(areaItems(state.activeAreaId).map((item) => item.id));
+  const hasSelection = Boolean(state.selectedId);
   startupMarkers.forEach(({ group, halo, item }) => {
     const active = state.activeAreaId === "all" || activeItems.has(item.id);
     const selected = state.selectedId === item.id;
     const pulse = 1 + Math.sin(time * 3.2 + item.lat) * 0.04;
-    const scale = selected ? 1.24 * pulse : active ? 0.92 : 0.58;
+    const scale = selected ? 1.24 * pulse : active ? (hasSelection ? 0.8 : 0.92) : 0.58;
     group.scale.setScalar(scale);
+    // With a company in focus, every other pin steps back into the haze.
+    const targetOpacity = selected ? 1 : active ? (hasSelection ? 0.45 : 1) : hasSelection ? 0.18 : 0.32;
     group.children.forEach((child) => {
       if (child.userData.hitArea) {
         child.material.opacity = 0;
         return;
       }
       if (child.material?.opacity !== undefined) {
-        child.material.transparent = !active;
-        child.material.opacity = active ? 1 : 0.32;
+        child.material.transparent = targetOpacity < 1;
+        child.material.opacity = targetOpacity;
       }
     });
     halo.rotation.z += 0.01;
@@ -2152,7 +2250,7 @@ function bindEvents() {
     }
   });
 
-  const brand = document.querySelector(".brand-mark");
+  const brand = document.querySelector(".brand");
   if (brand)
     brand.addEventListener("click", (event) => {
       event.preventDefault();
@@ -2164,8 +2262,10 @@ function bindEvents() {
   if (mobileGateContinue && mobileGate)
     mobileGateContinue.addEventListener("click", () => mobileGate.classList.add("is-dismissed"));
 
-  labelToggle.addEventListener("click", () => {
-    state.labelsMode = state.labelsMode === "all" ? "key" : "all";
+  labelToggle.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-mode]");
+    if (!button) return;
+    state.labelsMode = button.dataset.mode;
     updateUiState();
   });
 }
@@ -2179,6 +2279,7 @@ function animate() {
   updateTransit(delta);
   updateClouds(delta);
   updateMarkerScale(elapsed);
+  updateFocusFx(elapsed, delta);
   controls.update();
   renderer.render(scene, camera);
   updateLabels();
@@ -2201,9 +2302,10 @@ function init() {
   createClouds();
   createLabels();
   renderAreaList();
-  renderProgressRail();
   renderMiniMap();
   bindEvents();
+  // Label sizes are cached for the declutter pass; re-measure once the pixel font lands.
+  if (document.fonts?.ready) document.fonts.ready.then(() => labelDims.clear());
   const initial = cameraDestination(AREA_BY_ID.all.focus);
   camera.position.copy(initial.position);
   controls.target.copy(initial.target);

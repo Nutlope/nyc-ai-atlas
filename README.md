@@ -35,6 +35,7 @@ Important caveat: most addresses are reverse-geocoded from map-pin coordinates. 
 - Three.js
 - Vanilla JavaScript modules
 - CSS custom properties and plain CSS
+- Geist Pixel Square (single self-hosted UI font, SIL OFL)
 
 There is no React app or backend service. The scene is built in [src/main.js](src/main.js), geography lives in [src/geo.js](src/geo.js), data lives in [src/data.js](src/data.js), and UI styling lives in [src/styles.css](src/styles.css).
 
@@ -88,6 +89,7 @@ npm run addresses
 ├── public/
 │   ├── company-addresses.csv
 │   ├── company-addresses.md
+│   ├── fonts/
 │   ├── logos/
 │   └── og.png
 ├── scripts/
