@@ -1,11 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <style>
-    path { fill: #232833; }
-    @media (prefers-color-scheme: dark) {
-      path { fill: #f2f4f8; }
-    }
-  </style>
-  <g transform="rotate(24 16 16)">
+  <!-- Favicon: solid brand tile so the mark stays legible at 16px on any tab
+       background. The nav logo is the same silhouette but tile-free. -->
+  <rect width="32" height="32" rx="7" fill="#2664ff" />
+  <g transform="translate(16 16) rotate(24) scale(0.82) translate(-16 -16)" fill="#ffffff">
     <path
       fill-rule="evenodd"
       d="M15.9 2.4
