@@ -275,7 +275,7 @@ body.is-focused .atlas-shell::after {
 /* ---------------------------------------------------------------- */
 
 .hud-left,
-.search-trigger,
+.hud-top-right,
 .mini-map {
   position: absolute;
   z-index: 8;
@@ -284,6 +284,7 @@ body.is-focused .atlas-shell::after {
 .rail,
 .detail-card,
 .search-trigger,
+.icon-btn,
 .mini-map,
 .search-modal {
   border: 1px solid var(--glass-border);
@@ -696,9 +697,18 @@ kbd {
 /* Search trigger + modal                                            */
 /* ---------------------------------------------------------------- */
 
-.search-trigger {
+.hud-top-right {
   top: var(--space-md);
   right: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: hudInUp var(--dur-long) var(--ease-out) 80ms backwards;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.search-trigger {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -711,12 +721,29 @@ kbd {
   transition:
     border-color var(--dur-short) var(--ease-out),
     color var(--dur-short) var(--ease-out);
-  animation: hudInUp var(--dur-long) var(--ease-out) 80ms backwards;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
-.search-trigger:hover {
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  color: var(--color-ink-2);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-short) var(--ease-out),
+    color var(--dur-short) var(--ease-out);
+}
+
+.icon-btn svg {
+  width: 19px;
+  height: 19px;
+}
+
+.search-trigger:hover,
+.icon-btn:hover {
   border-color: var(--color-accent);
   color: var(--color-ink);
 }
