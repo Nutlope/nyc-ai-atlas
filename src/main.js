@@ -2253,6 +2253,15 @@ function renderStartupDetail(startup) {
   const meta = [startup.stage ? startup.stage.replace("-Stage", " stage") : null, startup.office, loc]
     .filter(Boolean)
     .join(" · ");
+  // Optional enrichment fields; rendered only when the data actually has them.
+  const facts = [
+    startup.founded ? `Founded ${startup.founded}` : null,
+    startup.team ? `~${startup.team} people` : null,
+    startup.raised ? `Raised ${startup.raised}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const jobsUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(startup.name)}&location=New%20York`;
 
   detailCard.classList.remove("is-hidden");
   detailCard.innerHTML = `
@@ -2266,8 +2275,10 @@ function renderStartupDetail(startup) {
     </div>
     <p class="detail-card__blurb">${escapeHtml(blurb)}</p>
     ${meta ? `<p class="detail-card__meta">${escapeHtml(meta)}</p>` : ""}
+    ${facts ? `<p class="detail-card__meta">${escapeHtml(facts)}</p>` : ""}
     <div class="detail-card__actions">
       ${url ? `<a class="detail-card__link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(host || "Visit website")} ↗</a>` : ""}
+      <a class="detail-card__ghost" href="${escapeHtml(jobsUrl)}" target="_blank" rel="noreferrer">Jobs ↗</a>
       <button class="detail-card__ghost" type="button" data-copy>Copy link</button>
     </div>
   `;

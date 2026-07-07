@@ -92,6 +92,9 @@ export const SECTOR_GROUPS = [
   { id: "product", label: "Apps & Other", color: "#7a828f", sectors: ["AI Application", "AI Interface", "Marketplace", "Mapped startup"] },
 ];
 
+// Optional per-startup enrichment fields the company card renders when
+// present: founded (year), team (approx headcount), raised (latest round).
+// Only add values verified against an authoritative source.
 export const STARTUPS = [
   { id: "65a0d5fc", name: "Abnormal Security", lat: 40.7349661, lng: -73.9905946, area: "flatiron", stage: null, sector: "Mapped startup", office: null, website: null, source: "felt" },
   { id: "d5a8e3da", name: "Adonis", lat: 40.7058848, lng: -74.0091414, area: "fidi", stage: null, sector: "Mapped startup", office: null, website: null, source: "felt" },
