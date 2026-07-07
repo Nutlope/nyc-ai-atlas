@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { AREAS, CONTEXT_POINTS, COMPANY_INFO, DATA_SOURCES, STARTUPS } from "./data.js";
+import { AREAS, CONTEXT_POINTS, COMPANY_INFO, DATA_SOURCES, SECTOR_GROUPS, STARTUPS } from "./data.js";
 import {
   MANHATTAN,
   BROOKLYN_QUEENS,
@@ -27,7 +27,30 @@ const state = {
   selectedId: null,
   labelsMode: window.matchMedia("(max-width: 54rem)").matches ? "key" : "all",
   flight: null,
+  filters: { group: "all", stage: "all" },
+  colorMode: "stage",
 };
+
+const SECTOR_GROUP_BY_SECTOR = new Map(
+  SECTOR_GROUPS.flatMap((group) => group.sectors.map((sector) => [sector, group])),
+);
+const FALLBACK_GROUP = SECTOR_GROUPS[SECTOR_GROUPS.length - 1];
+
+function groupOf(item) {
+  return SECTOR_GROUP_BY_SECTOR.get(item.sector) || FALLBACK_GROUP;
+}
+
+function passesFilter(item) {
+  if (state.filters.group !== "all" && groupOf(item).id !== state.filters.group) return false;
+  if (state.filters.stage !== "all" && item.stage !== state.filters.stage) return false;
+  return true;
+}
+
+// The selected company always stays visible, even if the filters exclude it
+// (e.g. selected from search while a filter is active).
+function isShown(item) {
+  return passesFilter(item) || state.selectedId === item.id;
+}
 
 const canvas = document.querySelector("#scene");
 const labelsLayer = document.querySelector("#labelsLayer");
@@ -40,6 +63,10 @@ const searchTrigger = document.querySelector("#searchTrigger");
 const searchModal = document.querySelector("#searchModal");
 let searchActiveIndex = -1;
 const labelToggle = document.querySelector("#labelToggle");
+const colorToggle = document.querySelector("#colorToggle");
+const groupFilter = document.querySelector("#groupFilter");
+const stageFilter = document.querySelector("#stageFilter");
+const pinLegend = document.querySelector("#pinLegend");
 
 // Active-area description, moved under the selected row in the rail.
 const areaDescEl = document.createElement("p");
@@ -1914,7 +1941,8 @@ function updateLabels() {
       projected.y < 1.08;
     const inArea = activeArea === "all" || activeItems.has(startup.id);
     const isKey = keyNames.has(startup.name) || startup.stage === "Public" || startup.stage === "Late-Stage";
-    const showByMode = state.labelsMode === "all" ? inArea : inArea && (isKey || state.selectedId === startup.id);
+    const showByMode =
+      isShown(startup) && (state.labelsMode === "all" ? inArea : inArea && (isKey || state.selectedId === startup.id));
     const selected = state.selectedId === startup.id;
 
     label.classList.toggle("is-muted", activeArea !== "all" && !activeItems.has(startup.id));
@@ -2019,6 +2047,60 @@ function updateLabels() {
   });
 }
 
+const STAGE_LEGEND = [
+  { label: "Early", css: "var(--color-success)" },
+  { label: "Late", css: "var(--color-accent-2)" },
+  { label: "Public", css: "var(--color-warning)" },
+];
+
+function renderPinLegend() {
+  const entries =
+    state.colorMode === "sector"
+      ? SECTOR_GROUPS.map((group) => ({ label: group.label, css: group.color }))
+      : STAGE_LEGEND;
+  pinLegend.innerHTML = entries
+    .map(
+      (entry) =>
+        `<span class="pin-legend__item"><i style="background:${entry.css}"></i>${escapeHtml(entry.label)}</span>`,
+    )
+    .join("");
+}
+
+// Recolor pins, halos, and label accents for the active color mode.
+function applyMarkerColors() {
+  const tone = new THREE.Color();
+  startupMarkers.forEach(({ group, halo, item }) => {
+    if (state.colorMode === "sector") tone.set(groupOf(item).color);
+    else tone.copy(stageColor(item.stage));
+    group.children.forEach((child) => {
+      if (child.userData.hitArea || child === halo) return;
+      if (child.material?.color) {
+        child.material.color.copy(tone);
+        if (child.material.emissive) child.material.emissive.copy(tone).multiplyScalar(0.12);
+      }
+    });
+    halo.material.color.copy(tone);
+    const label = labelElements.get(item.id);
+    if (label) {
+      const css =
+        state.colorMode === "sector"
+          ? groupOf(item).color
+          : item.stage === "Public"
+            ? "var(--color-warning)"
+            : item.stage === "Late-Stage"
+              ? "var(--color-accent-2)"
+              : "var(--color-success)";
+      label.style.setProperty("--label-color", css);
+    }
+  });
+}
+
+function populateGroupFilter() {
+  groupFilter.innerHTML =
+    `<option value="all">All</option>` +
+    SECTOR_GROUPS.map((group) => `<option value="${group.id}">${escapeHtml(group.label)}</option>`).join("");
+}
+
 function renderAreaList() {
   areaList.innerHTML = "";
   AREAS.forEach((area) => {
@@ -2056,14 +2138,21 @@ function renderMiniMap() {
 function updateUiState() {
   document.querySelectorAll(".area-button").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.area === state.activeAreaId);
+    const count = button.querySelector(".area-button__count");
+    if (count) count.textContent = areaItems(button.dataset.area).filter(passesFilter).length;
   });
   document.querySelectorAll(".mini-point").forEach((point) => {
     const item = STARTUPS.find((startup) => startup.id === point.dataset.id);
+    point.style.display = item && isShown(item) ? "" : "none";
     point.classList.toggle("is-active", item?.area === state.activeAreaId || state.activeAreaId === "all");
   });
   labelToggle.querySelectorAll("button").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.mode === state.labelsMode);
   });
+  colorToggle.querySelectorAll("button").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.color === state.colorMode);
+  });
+  renderPinLegend();
   document.body.classList.toggle("is-focused", Boolean(state.selectedId));
 
   // Slide the active area's description in right below its row.
@@ -2177,10 +2266,45 @@ function renderStartupDetail(startup) {
     </div>
     <p class="detail-card__blurb">${escapeHtml(blurb)}</p>
     ${meta ? `<p class="detail-card__meta">${escapeHtml(meta)}</p>` : ""}
-    ${url ? `<a class="detail-card__link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(host || "Visit website")} ↗</a>` : ""}
+    <div class="detail-card__actions">
+      ${url ? `<a class="detail-card__link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(host || "Visit website")} ↗</a>` : ""}
+      <button class="detail-card__ghost" type="button" data-copy>Copy link</button>
+    </div>
   `;
   const closeBtn = detailCard.querySelector(".detail-card__close");
   if (closeBtn) closeBtn.addEventListener("click", () => clearSelection());
+  const copyBtn = detailCard.querySelector("[data-copy]");
+  if (copyBtn)
+    copyBtn.addEventListener("click", async () => {
+      copyBtn.textContent = (await copyText(shareUrl(`#/company/${startup.id}`))) ? "Copied" : "Copy failed";
+      setTimeout(() => {
+        copyBtn.textContent = "Copy link";
+      }, 1400);
+    });
+}
+
+// Clipboard API first, hidden-textarea execCommand as the fallback.
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    ta.remove();
+    return ok;
+  }
 }
 
 function clearSelection() {
@@ -2249,6 +2373,8 @@ function updateMarkerScale(time) {
   const activeItems = new Set(areaItems(state.activeAreaId).map((item) => item.id));
   const hasSelection = Boolean(state.selectedId);
   startupMarkers.forEach(({ group, halo, item }) => {
+    group.visible = isShown(item);
+    if (!group.visible) return;
     const active = state.activeAreaId === "all" || activeItems.has(item.id);
     const selected = state.selectedId === item.id;
     const pulse = 1 + Math.sin(time * 3.2 + item.lat) * 0.04;
@@ -2275,7 +2401,7 @@ function onPointerMove(event) {
   pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(markerMeshes, false);
-  const item = hits[0]?.object?.userData?.item;
+  const item = hits.map((hit) => hit.object?.userData?.item).find((it) => it && isShown(it));
   hoverCandidate = item || null;
   canvas.style.cursor = item ? "pointer" : "grab";
 }
@@ -2285,7 +2411,7 @@ function onPointerDown(event) {
   pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(markerMeshes, false);
-  const item = hits[0]?.object?.userData?.item || hoverCandidate;
+  const item = hits.map((hit) => hit.object?.userData?.item).find((it) => it && isShown(it)) || hoverCandidate;
   if (item) selectStartup(item.id);
 }
 
@@ -2452,6 +2578,24 @@ function bindEvents() {
     state.labelsMode = button.dataset.mode;
     updateUiState();
   });
+
+  colorToggle.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-color]");
+    if (!button) return;
+    state.colorMode = button.dataset.color;
+    applyMarkerColors();
+    updateUiState();
+  });
+
+  groupFilter.addEventListener("change", () => {
+    state.filters.group = groupFilter.value;
+    updateUiState();
+  });
+
+  stageFilter.addEventListener("change", () => {
+    state.filters.stage = stageFilter.value;
+    updateUiState();
+  });
 }
 
 function animate() {
@@ -2489,6 +2633,7 @@ function init() {
   createLabels();
   renderAreaList();
   renderMiniMap();
+  populateGroupFilter();
   bindEvents();
   // Label sizes are cached for the declutter pass; re-measure once the pixel font lands.
   if (document.fonts?.ready) document.fonts.ready.then(() => labelDims.clear());

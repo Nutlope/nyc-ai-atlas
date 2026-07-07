@@ -79,6 +79,19 @@ export const AREAS = [
   },
 ];
 
+// Sector buckets used by the map filter and the "color by sector" mode.
+// Every sector string appearing in STARTUPS must belong to exactly one group.
+export const SECTOR_GROUPS = [
+  { id: "infra", label: "Infra & Cloud", color: "#3a6bff", sectors: ["AI/Data Infrastructure"] },
+  { id: "devtools", label: "Dev Tools", color: "#7c5cff", sectors: ["DevOps", "Coding"] },
+  { id: "creative", label: "Creative & Media", color: "#e0499a", sectors: ["Media/Creative"] },
+  { id: "finance", label: "Finance", color: "#0e9f9e", sectors: ["Financial Services"] },
+  { id: "health", label: "Health", color: "#2fa361", sectors: ["Healthcare"] },
+  { id: "industry", label: "Industry & Hardware", color: "#e07b39", sectors: ["Manufacturing & Industrials"] },
+  { id: "enterprise", label: "Enterprise & Security", color: "#c8891c", sectors: ["Enterprise Automation", "Legal", "Security"] },
+  { id: "product", label: "Apps & Other", color: "#7a828f", sectors: ["AI Application", "AI Interface", "Marketplace", "Mapped startup"] },
+];
+
 export const STARTUPS = [
   { id: "65a0d5fc", name: "Abnormal Security", lat: 40.7349661, lng: -73.9905946, area: "flatiron", stage: null, sector: "Mapped startup", office: null, website: null, source: "felt" },
   { id: "d5a8e3da", name: "Adonis", lat: 40.7058848, lng: -74.0091414, area: "fidi", stage: null, sector: "Mapped startup", office: null, website: null, source: "felt" },

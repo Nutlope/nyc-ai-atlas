@@ -455,6 +455,54 @@ body.is-focused .atlas-shell::after {
   border-top: 1px solid oklch(20% 0.024 258 / 0.1);
 }
 
+.filter-row {
+  display: flex;
+  gap: 8px;
+}
+
+.filter-field {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+  color: var(--color-muted);
+  font-size: var(--fs-xs);
+}
+
+.filter-field select {
+  width: 100%;
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 1px solid oklch(20% 0.024 258 / 0.14);
+  border-radius: var(--radius-sm);
+  background: oklch(100% 0 0 / 0.55);
+  color: var(--color-ink);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.pin-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  color: var(--color-ink-2);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.pin-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.pin-legend__item i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
 .mode-row {
   display: flex;
   align-items: center;
@@ -620,31 +668,54 @@ kbd {
   line-height: 1.6;
 }
 
-.detail-card__link {
+.detail-card__actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.detail-card__link,
+.detail-card__ghost {
+  display: flex;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-height: 34px;
-  margin-top: 12px;
   padding: 6px 12px;
-  border: 1px solid var(--color-accent);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-accent);
   font-size: var(--fs-sm);
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
   transition:
     background-color var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out),
     color var(--dur-short) var(--ease-out),
     transform var(--dur-short) var(--ease-out);
+}
+
+.detail-card__link {
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
 }
 
 .detail-card__link:hover {
   background: var(--color-accent);
   color: var(--color-accent-ink);
   transform: translateY(-1px);
+}
+
+.detail-card__ghost {
+  border: 1px solid oklch(20% 0.024 258 / 0.16);
+  color: var(--color-ink-2);
+}
+
+.detail-card__ghost:hover {
+  border-color: var(--color-ink-2);
+  color: var(--color-ink);
 }
 
 /* ---------------------------------------------------------------- */
