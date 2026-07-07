@@ -77,33 +77,11 @@
           <nav id="areaList" class="area-list" aria-label="Explore by area"></nav>
 
           <div class="rail__foot">
-            <div class="filter-row">
-              <label class="filter-field">
-                <span>Sector</span>
-                <select id="groupFilter" aria-label="Filter by sector"></select>
-              </label>
-              <label class="filter-field">
-                <span>Stage</span>
-                <select id="stageFilter" aria-label="Filter by stage">
-                  <option value="all">All</option>
-                  <option value="Early-Stage">Early</option>
-                  <option value="Late-Stage">Late</option>
-                  <option value="Public">Public</option>
-                </select>
-              </label>
-            </div>
             <div class="mode-row">
               <span class="mode-row__label">Pins</span>
               <div id="labelToggle" class="segmented" role="group" aria-label="Company label density">
                 <button type="button" data-mode="key">Curated</button>
                 <button type="button" data-mode="all">All</button>
-              </div>
-            </div>
-            <div class="mode-row">
-              <span class="mode-row__label">Color</span>
-              <div id="colorToggle" class="segmented" role="group" aria-label="Pin color mode">
-                <button type="button" data-color="stage" class="is-active">Stage</button>
-                <button type="button" data-color="sector">Sector</button>
               </div>
             </div>
             <div id="pinLegend" class="pin-legend"></div>

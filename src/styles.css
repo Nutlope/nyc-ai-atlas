@@ -455,32 +455,6 @@ body.is-focused .atlas-shell::after {
   border-top: 1px solid oklch(20% 0.024 258 / 0.1);
 }
 
-.filter-row {
-  display: flex;
-  gap: 8px;
-}
-
-.filter-field {
-  display: grid;
-  flex: 1;
-  gap: 3px;
-  min-width: 0;
-  color: var(--color-muted);
-  font-size: var(--fs-xs);
-}
-
-.filter-field select {
-  width: 100%;
-  min-height: 26px;
-  padding: 2px 8px;
-  border: 1px solid oklch(20% 0.024 258 / 0.14);
-  border-radius: var(--radius-sm);
-  background: oklch(100% 0 0 / 0.55);
-  color: var(--color-ink);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-}
-
 .pin-legend {
   display: flex;
   flex-wrap: wrap;

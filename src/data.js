@@ -79,19 +79,6 @@ export const AREAS = [
   },
 ];
 
-// Sector buckets used by the map filter and the "color by sector" mode.
-// Every sector string appearing in STARTUPS must belong to exactly one group.
-export const SECTOR_GROUPS = [
-  { id: "infra", label: "Infra & Cloud", color: "#3a6bff", sectors: ["AI/Data Infrastructure"] },
-  { id: "devtools", label: "Dev Tools", color: "#7c5cff", sectors: ["DevOps", "Coding"] },
-  { id: "creative", label: "Creative & Media", color: "#e0499a", sectors: ["Media/Creative"] },
-  { id: "finance", label: "Finance", color: "#0e9f9e", sectors: ["Financial Services"] },
-  { id: "health", label: "Health", color: "#2fa361", sectors: ["Healthcare"] },
-  { id: "industry", label: "Industry & Hardware", color: "#e07b39", sectors: ["Manufacturing & Industrials"] },
-  { id: "enterprise", label: "Enterprise & Security", color: "#c8891c", sectors: ["Enterprise Automation", "Legal", "Security"] },
-  { id: "product", label: "Apps & Other", color: "#7a828f", sectors: ["AI Application", "AI Interface", "Marketplace", "Mapped startup"] },
-];
-
 // Optional per-startup enrichment fields the company card renders when
 // present: founded (year), team (approx headcount), raised (latest round).
 // Only add values verified against an authoritative source.
