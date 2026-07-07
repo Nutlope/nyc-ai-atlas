@@ -345,11 +345,10 @@ body.is-focused .atlas-shell::after {
 }
 
 .brand__mark {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
-  border-radius: 9px;
-  box-shadow: 0 4px 12px oklch(20% 0.05 258 / 0.28);
+  color: var(--color-ink);
 }
 
 .brand__text {
