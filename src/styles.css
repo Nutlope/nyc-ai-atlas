@@ -946,99 +946,98 @@ kbd {
 /* Responsive                                                        */
 /* ---------------------------------------------------------------- */
 
+/* Touch layout: rail collapses into a bottom sheet with an area chip row;
+   the company card slides in as a sheet above it. */
 @media (max-width: 54rem) {
   .hud-left {
     top: auto;
-    right: var(--space-md);
-    bottom: var(--space-md);
+    left: var(--space-xs);
+    right: var(--space-xs);
+    bottom: var(--space-xs);
     width: auto;
-    max-height: 46dvh;
+    gap: 8px;
   }
 
   .rail {
-    overflow: auto;
+    padding: 10px 12px;
+  }
+
+  .brand {
+    gap: 8px;
+    padding: 0 0 8px;
+  }
+
+  .brand__mark {
+    width: 22px;
+    height: 22px;
   }
 
   .brand h1 {
     font-size: var(--fs-md);
   }
 
-  .mini-map {
+  .brand__sub {
+    display: none;
+  }
+
+  .area-list {
+    display: flex;
+    gap: 6px;
+    padding: 8px 0 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .area-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .area-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: auto;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 4px 12px;
+    border: 1px solid oklch(20% 0.024 258 / 0.14);
+    border-radius: 999px;
+  }
+
+  .area-button__number {
+    display: none;
+  }
+
+  .area-button__count {
+    min-width: 0;
+  }
+
+  .area-button.is-active {
+    box-shadow: none;
+    border-color: var(--color-accent);
+  }
+
+  .area-desc,
+  .rail__foot,
+  .mini-map,
+  .search-trigger__label,
+  .search-trigger kbd {
     display: none;
   }
 
   .detail-card {
     order: -1;
+    max-height: 44dvh;
+    overflow: auto;
   }
-}
 
-/* "Best on desktop" gate; the 3D map keeps rendering behind it */
-.mobile-gate {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  background: linear-gradient(
-    180deg,
-    oklch(28% 0.04 250 / 0.55),
-    oklch(20% 0.03 258 / 0.62)
-  );
-  backdrop-filter: blur(2px);
-}
+  .search-trigger {
+    padding: 6px 10px;
+  }
 
-.mobile-gate__card {
-  max-width: 22rem;
-  padding: 1.6rem 1.5rem;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--glass-shadow);
-  text-align: center;
-}
-
-.mobile-gate__glyph {
-  display: block;
-  margin-bottom: 0.7rem;
-  font-size: 2.2rem;
-  line-height: 1;
-}
-
-.mobile-gate__card h2 {
-  margin: 0 0 0.6rem;
-  color: var(--color-ink);
-  font-size: var(--fs-xl);
-  line-height: 1.1;
-}
-
-.mobile-gate__card p {
-  margin: 0 0 1.2rem;
-  color: var(--color-ink-2);
-  font-size: var(--fs-sm);
-  line-height: 1.5;
-}
-
-.mobile-gate__continue {
-  min-height: 2.5rem;
-  padding: 0.5rem 1.1rem;
-  border: 1px solid oklch(20% 0.024 258 / 0.16);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-muted);
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-
-.mobile-gate.is-dismissed {
-  display: none !important;
-}
-
-@media (max-width: 768px) {
-  .mobile-gate {
-    display: flex;
+  .marker-label {
+    max-width: 52vw;
   }
 }
 

@@ -95,9 +95,12 @@ const scene = new THREE.Scene();
 scene.background = makeSkyTexture();
 scene.fog = new THREE.FogExp2(HORIZON, 0.0062);
 
+// Phones get a lighter GPU budget: capped pixel ratio and a smaller shadow map.
+const smallScreen = window.matchMedia("(max-width: 54rem)").matches;
+
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 500);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, smallScreen ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -398,7 +401,7 @@ function createLights() {
 
   const sun = new THREE.DirectionalLight(0xfff2d6, 3.2);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(smallScreen ? 1024 : 2048, smallScreen ? 1024 : 2048);
   sun.shadow.camera.near = 2;
   sun.shadow.camera.far = 220;
   // The city footprint spans roughly x [-45, 55], z [-110, 45], so the shadow
@@ -2568,11 +2571,6 @@ function bindEvents() {
       event.preventDefault();
       setActiveArea("all");
     });
-
-  const mobileGate = document.querySelector("#mobileGate");
-  const mobileGateContinue = document.querySelector("#mobileGateContinue");
-  if (mobileGateContinue && mobileGate)
-    mobileGateContinue.addEventListener("click", () => mobileGate.classList.add("is-dismissed"));
 
   // Browser back/forward re-applies the hash route.
   window.addEventListener("hashchange", () => {
