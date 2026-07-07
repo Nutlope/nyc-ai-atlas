@@ -2077,6 +2077,38 @@ function updateUiState() {
   }
 }
 
+/* ---------------------------------------------------------------- */
+/* Deep links: #/company/:id and #/area/:id, with back/forward       */
+/* ---------------------------------------------------------------- */
+
+const BASE_TITLE = "NYC AI Atlas";
+let suppressHashEvent = false;
+
+function writeHash(hash) {
+  if (location.hash === hash) return;
+  suppressHashEvent = true;
+  location.hash = hash;
+}
+
+function shareUrl(hash) {
+  return `${location.origin}${location.pathname}${hash}`;
+}
+
+function applyHashFromLocation() {
+  const hash = location.hash || "#/";
+  const company = hash.match(/^#\/company\/([\w-]+)$/);
+  if (company && STARTUPS.some((s) => s.id === company[1])) {
+    selectStartup(company[1]);
+    return;
+  }
+  const area = hash.match(/^#\/area\/([\w-]+)$/);
+  if (area && AREA_BY_ID[area[1]]) {
+    setActiveArea(area[1]);
+    return;
+  }
+  if (hash === "#/" || hash === "#") setActiveArea("all");
+}
+
 function setActiveArea(areaId, { keepSelection = false } = {}) {
   state.activeAreaId = areaId;
   if (!keepSelection) {
@@ -2087,6 +2119,10 @@ function setActiveArea(areaId, { keepSelection = false } = {}) {
   flyTo(area.focus);
   renderAreaDetail(area);
   updateUiState();
+  if (!keepSelection) {
+    writeHash(areaId === "all" ? "#/" : `#/area/${areaId}`);
+    document.title = areaId === "all" ? BASE_TITLE : `${area.label} · ${BASE_TITLE}`;
+  }
 }
 
 function selectStartup(id) {
@@ -2098,6 +2134,8 @@ function selectStartup(id) {
   engageFocus(startup);
   renderStartupDetail(startup);
   updateUiState();
+  writeHash(`#/company/${id}`);
+  document.title = `${startup.name} · ${BASE_TITLE}`;
 }
 
 function renderAreaDetail() {
@@ -2151,6 +2189,8 @@ function clearSelection() {
   const area = AREA_BY_ID[state.activeAreaId] || AREA_BY_ID.all;
   renderAreaDetail(area);
   updateUiState();
+  writeHash(area.id === "all" ? "#/" : `#/area/${area.id}`);
+  document.title = area.id === "all" ? BASE_TITLE : `${area.label} · ${BASE_TITLE}`;
 }
 
 function cameraDestination(focus) {
@@ -2397,6 +2437,15 @@ function bindEvents() {
   if (mobileGateContinue && mobileGate)
     mobileGateContinue.addEventListener("click", () => mobileGate.classList.add("is-dismissed"));
 
+  // Browser back/forward re-applies the hash route.
+  window.addEventListener("hashchange", () => {
+    if (suppressHashEvent) {
+      suppressHashEvent = false;
+      return;
+    }
+    applyHashFromLocation();
+  });
+
   labelToggle.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-mode]");
     if (!button) return;
@@ -2448,6 +2497,8 @@ function init() {
   controls.target.copy(initial.target);
   renderAreaDetail(AREA_BY_ID.all);
   updateUiState();
+  // Deep links: land directly on a shared company or area.
+  if (location.hash && location.hash !== "#/") applyHashFromLocation();
   animate();
 }
 
