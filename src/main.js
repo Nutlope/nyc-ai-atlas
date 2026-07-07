@@ -67,7 +67,7 @@ function makeSkyTexture() {
 
 const scene = new THREE.Scene();
 scene.background = makeSkyTexture();
-scene.fog = new THREE.FogExp2(HORIZON, 0.0062);
+scene.fog = new THREE.FogExp2(HORIZON, 0.0052);
 
 // Phones get a lighter GPU budget: capped pixel ratio and a smaller shadow map.
 const smallScreen = window.matchMedia("(max-width: 54rem)").matches;
@@ -113,7 +113,7 @@ let hoverCandidate = null;
 
 // Greenery palette: a spread of NYC park greens for per-instance tree color.
 const GREEN_PALETTE = [
-  0x3b7437, 0x4f9652, 0x5ba350, 0x6fae4f, 0x86c263, 0x9bcf78, 0x6b9b3c,
+  0x3d6b39, 0x4a7d45, 0x557f42, 0x5e8a4c, 0x6d9a58, 0x7fa866, 0x4f7237,
 ].map((c) => new THREE.Color(c));
 
 const colors = {
@@ -123,8 +123,8 @@ const colors = {
   yellow: new THREE.Color(0xffcc4d),
   red: new THREE.Color(0xe54c42),
   graphite: new THREE.Color(0x19202b),
-  land: new THREE.Color(0xd6d0ad),
-  land2: new THREE.Color(0xc8d89a),
+  land: new THREE.Color(0xd2cec2),
+  land2: new THREE.Color(0xc7c2b2),
   road: new THREE.Color(0x2b2f38),
   building: new THREE.Color(0xd9d6ca),
   buildingDark: new THREE.Color(0x8e9899),
@@ -169,9 +169,9 @@ const groundTexture = makeGroundTexture();
 
 const materials = {
   water: new THREE.MeshStandardMaterial({
-    color: 0x1d6fa0,
-    roughness: 0.34,
-    metalness: 0.22,
+    color: 0x2e6d92,
+    roughness: 0.4,
+    metalness: 0.18,
   }),
   land: new THREE.MeshStandardMaterial({
     color: colors.land,
@@ -186,17 +186,17 @@ const materials = {
     side: THREE.DoubleSide,
   }),
   park: new THREE.MeshStandardMaterial({
-    color: 0x74b85c,
+    color: 0x679c58,
     roughness: 0.9,
     side: THREE.DoubleSide,
   }),
   parkLight: new THREE.MeshStandardMaterial({
-    color: 0x9bcf78,
+    color: 0x86ad6c,
     roughness: 0.92,
     side: THREE.DoubleSide,
   }),
   parkDark: new THREE.MeshStandardMaterial({
-    color: 0x4f9652,
+    color: 0x4c7847,
     roughness: 0.95,
     side: THREE.DoubleSide,
   }),
@@ -205,17 +205,17 @@ const materials = {
     roughness: 0.86,
   }),
   pond: new THREE.MeshStandardMaterial({
-    color: 0x2f8fb2,
+    color: 0x467f9b,
     roughness: 0.46,
     metalness: 0.04,
     side: THREE.DoubleSide,
   }),
   road: new THREE.MeshStandardMaterial({
-    color: 0x7b7e85,
+    color: 0x5b6068,
     roughness: 0.82,
   }),
   street: new THREE.MeshStandardMaterial({
-    color: 0x9a9b96,
+    color: 0x767b82,
     roughness: 0.86,
   }),
   rail: new THREE.MeshStandardMaterial({
@@ -252,7 +252,7 @@ const materials = {
     roughness: 0.9,
   }),
   hill: new THREE.MeshStandardMaterial({
-    color: 0x6fae5a,
+    color: 0x63904f,
     roughness: 0.96,
     flatShading: true,
   }),
@@ -278,18 +278,8 @@ const materials = {
     emissive: new THREE.Color(0x072b19),
   }),
   ghost: new THREE.MeshStandardMaterial({
-    color: 0xdce8ee,
-    roughness: 1,
-    transparent: true,
-    opacity: 0.55,
-    depthWrite: false,
-  }),
-  haze: new THREE.MeshBasicMaterial({
-    color: 0xd2e6f0,
-    transparent: true,
-    opacity: 0.46,
-    depthWrite: false,
-    side: THREE.DoubleSide,
+    color: 0xd8d4c9,
+    roughness: 0.95,
   }),
   ferry: new THREE.MeshStandardMaterial({
     color: 0xf4f1e8,
@@ -409,10 +399,10 @@ function makeCurveTube(points, radius, material, segments = 48) {
 }
 
 function createLights() {
-  const hemi = new THREE.HemisphereLight(0xdbefff, 0x3c3424, 2.4);
+  const hemi = new THREE.HemisphereLight(0xdbefff, 0x4a4335, 2.55);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(0xfff2d6, 3.2);
+  const sun = new THREE.DirectionalLight(0xffedc9, 3.45);
   sun.castShadow = true;
   sun.shadow.mapSize.set(smallScreen ? 1024 : 2048, smallScreen ? 1024 : 2048);
   sun.shadow.camera.near = 2;
@@ -427,7 +417,7 @@ function createLights() {
   sun.shadow.bias = -0.00035;
   sun.shadow.normalBias = 0.02;
   sun.target.position.set(5, 0, -32);
-  sun.position.set(5 - 36, 70, -32 + 42);
+  sun.position.set(5 - 52, 46, -32 + 40);
   scene.add(sun.target);
   scene.add(sun);
 
@@ -462,8 +452,8 @@ function createSunGlow() {
   );
   // Same azimuth as the sun light, dropped near the horizon so orbiting
   // cameras actually catch it over the Hudson.
-  sprite.position.set(-150, 96, 175);
-  sprite.scale.setScalar(150);
+  sprite.position.set(-200, 82, 128);
+  sprite.scale.setScalar(170);
   scene.add(sprite);
 }
 
@@ -742,18 +732,6 @@ function createHarborIslands() {
   });
 }
 
-function createHaze() {
-  // Soft mist over the outer boroughs (not Manhattan) so they read as
-  // intentionally unfinished. Two stacked translucent sheets give it depth;
-  // sit low enough that company pins poke above into clear air.
-  [JERSEY, BROOKLYN_QUEENS].forEach((poly) => {
-    [0.5, 0.92].forEach((y, i) => {
-      const mesh = makeShape(poly, materials.haze, y, false);
-      mesh.renderOrder = 2 + i;
-    });
-  });
-}
-
 function createBaseMap() {
   const waterGeo = new THREE.PlaneGeometry(260, 230, 80, 72);
   const water = new THREE.Mesh(waterGeo, materials.water);
@@ -865,8 +843,8 @@ function createStreetGrid() {
   for (let i = -48; i <= 60; i += 1) {
     streets.push(gridLine(i * 0.00094, 0, false, 0.028, 36));
   }
-  gridSegments(streets, 0.026, materials.street, 0.12);
-  gridSegments(avenues, 0.05, materials.road, 0.125);
+  gridSegments(streets, 0.036, materials.street, 0.03);
+  gridSegments(avenues, 0.085, materials.road, 0.032);
 }
 
 function createBridgeDetails() {
@@ -952,7 +930,7 @@ function createSubwayLayer() {
     roughness: 0.4,
     emissive: new THREE.Color(0x1a1a1a),
   });
-  const stationGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.06, 16);
+  const stationGeo = new THREE.CylinderGeometry(0.085, 0.085, 0.04, 16);
 
   SUBWAY_LINES.forEach((line, lineIndex) => {
     const lineMaterial = new THREE.MeshStandardMaterial({
@@ -960,8 +938,8 @@ function createSubwayLayer() {
       roughness: 0.45,
       emissive: new THREE.Color(line.color).multiplyScalar(0.18),
     });
-    const y = 0.2 + lineIndex * 0.012; // tiny stagger so overlapping lines don't z-fight
-    const { points } = makeTube(line.stops, 0.034, lineMaterial, y, line.stops.length * 12);
+    const y = 0.045 + lineIndex * 0.008; // tiny stagger so overlapping lines don't z-fight
+    const { points } = makeTube(line.stops, 0.022, lineMaterial, y, line.stops.length * 12);
 
     line.stops.forEach(([lat, lng]) => {
       const p = project(lat, lng, y + 0.04);
@@ -1149,7 +1127,7 @@ function createRoadsAndRails() {
 
   // Hidden smooth paths that the traffic drives along (the visible grid is
   // rendered separately). Kept invisible so cars appear to follow streets.
-  const roadPaths = roadRoutes.map((route) => makeTube(route, 0.05, materials.road, 0.13, 80));
+  const roadPaths = roadRoutes.map((route) => makeTube(route, 0.042, materials.road, 0.05, 80));
   createStreetGrid();
   createBridgeDetails();
 
@@ -1193,38 +1171,109 @@ function createBuildings() {
   const random = seededRandom(43);
   const instances = [];
 
-  for (const district of DISTRICTS) {
+  // Manhattan buildings live INSIDE street blocks, aligned to the same
+  // lattice the visible grid draws. Shared block placement is what makes the
+  // city read as a real city instead of scattered boxes.
+  const CELL_U = 0.00094; // street-to-street spacing (degree units along av)
+  const CELL_V = 0.0026; // avenue-to-avenue spacing (degree units along st)
+  const gridOrigin = project(GRID.origin.lat, GRID.origin.lng);
+  const uVec = project(
+    GRID.origin.lat + GRID.av.dlat * CELL_U,
+    GRID.origin.lng + GRID.av.dlng * CELL_U,
+  ).sub(gridOrigin); // short block side (street to street)
+  const vVec = project(
+    GRID.origin.lat + GRID.st.dlat * CELL_V,
+    GRID.origin.lng + GRID.st.dlng * CELL_V,
+  ).sub(gridOrigin); // long block side (avenue to avenue)
+  const uLen = uVec.length();
+  const vLen = vVec.length();
+  const gridRot = Math.atan2(uVec.x, uVec.z); // building depth spans street-to-street
+
+  const filledCells = new Set();
+  DISTRICTS.filter((district) => !district.faded).forEach((district) => {
     const [latMin, latMax, lngMin, lngMax] = district.bbox;
-    let placed = 0;
+    for (let i = -52; i <= 64; i += 1) {
+      for (let j = -8; j <= 8; j += 1) {
+        const u = (i + 0.5) * CELL_U;
+        const v = (j + 0.5) * CELL_V;
+        const lat = GRID.origin.lat + GRID.av.dlat * u + GRID.st.dlat * v;
+        const lng = GRID.origin.lng + GRID.av.dlng * u + GRID.st.dlng * v;
+        if (lat < latMin || lat > latMax || lng < lngMin || lng > lngMax) continue;
+        const key = `${i}:${j}`;
+        if (filledCells.has(key)) continue;
+        if (!buildingAllowed(lat, lng)) continue;
+        filledCells.add(key);
+        const center = project(lat, lng);
+        // 2-3 lots along the long side of each block; a few stay vacant.
+        const lots = random() < 0.3 ? 3 : 2;
+        for (let slot = 0; slot < lots; slot += 1) {
+          if (random() < 0.09) continue;
+          const tall = random() < district.tall;
+          const base = district.h[0];
+          const span = district.h[1] - district.h[0];
+          // Bias toward shorter buildings; only "tall" picks reach the top.
+          const h = tall ? base + (0.55 + random() * 0.45) * span : base + Math.pow(random(), 1.7) * span * 0.7;
+          const slotT = (slot + 0.5) / lots - 0.5;
+          const p = center
+            .clone()
+            .addScaledVector(vVec, slotT * 0.8)
+            .addScaledVector(uVec, (random() - 0.5) * 0.08);
+          const grow = tall ? 1.12 : 1;
+          const w = Math.min(vLen * 0.42, ((vLen * 0.78) / lots) * (0.68 + random() * 0.24) * grow);
+          const d = uLen * (0.5 + random() * 0.15) * grow;
+          instances.push({ x: p.x, z: p.z, h, w, d, rot: gridRot, shade: random(), roof: random(), faded: false });
+        }
+      }
+    }
+  });
+
+  // Outer boroughs keep loose placement, but each borough shares one street
+  // orientation (with a whisper of jitter) and buildings never interpenetrate.
+  const boroughRot = {
+    "Brooklyn-N": gridRot + 0.9,
+    "Brooklyn-S": gridRot + 0.55,
+    "LIC/Queens": gridRot + 0.2,
+    JerseyCity: gridRot + 0.12,
+  };
+  DISTRICTS.filter((district) => district.faded).forEach((district) => {
+    const [latMin, latMax, lngMin, lngMax] = district.bbox;
+    const placedSpots = [];
+    let count = 0;
     let guard = 0;
-    const cap = district.count * 14;
-    while (placed < district.count && guard < cap) {
+    const cap = district.count * 16;
+    while (count < district.count && guard < cap) {
       guard += 1;
       const lat = latMin + random() * (latMax - latMin);
       const lng = lngMin + random() * (lngMax - lngMin);
       if (!buildingAllowed(lat, lng)) continue;
       const p = project(lat, lng);
-      const tall = random() < district.tall;
+      const w = 0.34 + random() * 0.6;
+      const d = 0.34 + random() * 0.66;
+      const r = Math.max(w, d) * 0.72;
+      if (
+        placedSpots.some(
+          (q) => (q.x - p.x) * (q.x - p.x) + (q.z - p.z) * (q.z - p.z) < (q.r + r) * (q.r + r) * 0.62,
+        )
+      )
+        continue;
+      placedSpots.push({ x: p.x, z: p.z, r });
       const base = district.h[0];
       const span = district.h[1] - district.h[0];
-      // Bias toward shorter buildings; only "tall" picks reach the top of range.
-      const h = tall ? base + (0.55 + random() * 0.45) * span : base + Math.pow(random(), 1.7) * span * 0.7;
-      const w = 0.32 + random() * 0.78;
-      const d = 0.32 + random() * 0.92;
+      const h = base + Math.pow(random(), 1.6) * span;
       instances.push({
         x: p.x,
         z: p.z,
         h,
         w,
         d,
-        rot: random() * Math.PI,
+        rot: (boroughRot[district.name] ?? gridRot) + (random() - 0.5) * 0.1,
         shade: random(),
         roof: random(),
-        faded: !!district.faded,
+        faded: true,
       });
-      placed += 1;
+      count += 1;
     }
-  }
+  });
 
   // Faded outer-borough buildings render as flat, pale "ghost" blocks.
   const fadedBoxes = instances.filter((b) => b.faded);
@@ -1268,21 +1317,21 @@ function createBuildings() {
   // A small palette of NYC facade tones: warm stone, concrete, brick, glass.
   const palette = [
     new THREE.Color(0xe3ded0), // limestone
-    new THREE.Color(0xcdbfa6), // sandstone
+    new THREE.Color(0xcfc5af), // sandstone
     new THREE.Color(0xb7b9b3), // concrete
-    new THREE.Color(0xc28d72), // brick / terracotta
-    new THREE.Color(0x9fb6c4), // cool glass
+    new THREE.Color(0xb28a70), // brick / terracotta
+    new THREE.Color(0xa6b4bf), // cool glass
     new THREE.Color(0xd8d2c4), // pale stone
   ];
   const color = new THREE.Color();
   // Roof tones add pops of color across the otherwise stone city.
   const roofPalette = [
-    new THREE.Color(0x5a636c), // slate
-    new THREE.Color(0x4a525b), // dark slate
-    new THREE.Color(0xb15a3c), // terracotta
-    new THREE.Color(0x7c3b34), // oxide red
-    new THREE.Color(0x4f6b4d), // weathered green
-    new THREE.Color(0x8a7f6b), // tar/gravel
+    new THREE.Color(0x646c75), // slate
+    new THREE.Color(0x565e66), // dark slate
+    new THREE.Color(0x9c6a4e), // terracotta
+    new THREE.Color(0x74524a), // oxide red
+    new THREE.Color(0x5f6a5a), // weathered green
+    new THREE.Color(0x968e7d), // tar/gravel
   ];
   const roofColor = new THREE.Color();
 
@@ -1341,7 +1390,7 @@ function createBuildings() {
       matrix.compose(pos, quat, scale);
       roofMesh.setMatrixAt(roofCount, matrix);
       // Mostly muted slate/gravel; ~30% get a warmer terracotta/red/green pop.
-      const warm = box.shade > 0.7 && box.h < 2.2;
+      const warm = box.shade > 0.84 && box.h < 2.2;
       roofColor.copy(roofPalette[warm ? 2 + (Math.floor(box.roof * 3) % 3) : box.roof > 0.5 ? 0 : 5]);
       roofMesh.setColorAt(roofCount, roofColor);
       roofCount += 1;
@@ -2736,7 +2785,6 @@ function init() {
   createSubwayLayer();
   createBuildings();
   createLandmarks();
-  createHaze();
   createMarkers();
   createVehicles(roadPaths);
   createFerries();
