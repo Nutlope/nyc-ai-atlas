@@ -15,9 +15,14 @@ The app was inspired by the interaction model of Levels.fyi Atlas: a left-side c
 
 ## Add Your Startup
 
-Know an AI startup with a real NYC office that belongs on the map? Fill out the [Add a startup form](https://github.com/Nutlope/interactive-3d-map/issues/new?template=add-startup.yml). It takes about a minute: company, website, NYC address, neighborhood, stage, sector, and a one-line blurb. A maintainer places the pin, fetches the logo, and ships it.
+Know an AI startup with a real NYC office that belongs on the map? Open a pull request. Everything about a company is one entry in [src/data.js](src/data.js) plus a one-line blurb, so it is a small, self-contained change. [CONTRIBUTING.md](CONTRIBUTING.md) walks through it.
 
-You can also get there from the "Add your startup" button in the app, or from the link that appears when a search finds no matches.
+Two easy ways to do it:
+
+- **Ask an AI coding agent.** Clone the repo and tell your agent (Claude Code, Cursor, etc.) "add \<company\> to the atlas and open a PR." [AGENTS.md](AGENTS.md) has a deterministic recipe it can follow.
+- **By hand.** Add the entry, run `npm run logos`, verify with `npm run dev`, and open the PR.
+
+There is also an "Add your startup" button in the app, and the same link appears when a search finds no matches.
 
 ## Data Sources
 

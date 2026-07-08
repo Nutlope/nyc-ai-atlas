@@ -2411,8 +2411,6 @@ function setActiveArea(areaId, { keepSelection = false } = {}) {
 function selectStartup(id) {
   const startup = STARTUPS.find((item) => item.id === id);
   if (!startup) return;
-  dismissOnboarding();
-  detailCard.classList.remove("is-onboard");
   state.selectedId = id;
   state.activeAreaId = startup.area;
   flyTo({ lat: startup.lat, lng: startup.lng, distance: 18, height: 16, rotation: 0.72 }, { cinematic: true });
@@ -2423,28 +2421,10 @@ function selectStartup(id) {
   document.title = `${startup.name} · ${BASE_TITLE}`;
 }
 
-const ONBOARD_KEY = "atlas-onboarded";
-
-function onboardDismissed() {
-  try {
-    return Boolean(localStorage.getItem(ONBOARD_KEY));
-  } catch {
-    return false;
-  }
-}
-
-function dismissOnboarding() {
-  try {
-    localStorage.setItem(ONBOARD_KEY, "1");
-  } catch {
-    /* private mode: the card simply returns next visit */
-  }
-}
-
 function renderAreaDetail() {
-  // Until dismissed, the floating card slot hosts a compact explore guide;
-  // after that it stays reserved for company details.
-  if (state.selectedId || onboardDismissed()) {
+  // The card slot shows a persistent "how to explore" guide whenever no
+  // company is selected; selecting a company swaps in its details.
+  if (state.selectedId) {
     detailCard.classList.add("is-hidden");
     detailCard.classList.remove("is-onboard");
     return;
@@ -2458,13 +2438,7 @@ function renderAreaDetail() {
       <li><span class="onboard__keys"><kbd>⌘</kbd><kbd>K</kbd></span><span>Search any company</span></li>
       <li><span class="onboard__keys"><kbd class="onboard__click">click</kbd></span><span>Tap a pin for details</span></li>
     </ul>
-    <button class="detail-card__ghost onboard-done" type="button" data-onboard-done>Got it</button>
   `;
-  detailCard.querySelector("[data-onboard-done]").addEventListener("click", () => {
-    dismissOnboarding();
-    detailCard.classList.add("is-hidden");
-    detailCard.classList.remove("is-onboard");
-  });
 }
 
 function renderStartupDetail(startup) {
@@ -2498,7 +2472,7 @@ function renderStartupDetail(startup) {
     .join(" · ");
   const jobsUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(startup.name)}&location=New%20York`;
 
-  detailCard.classList.remove("is-hidden");
+  detailCard.classList.remove("is-hidden", "is-onboard");
   detailCard.innerHTML = `
     <button class="detail-card__close" type="button" aria-label="Close">&times;</button>
     <div class="detail-card__head">
@@ -2691,7 +2665,7 @@ function renderSearchResults(query) {
   }
 
   if (!results.length) {
-    searchResults.innerHTML = `<div class="search-result" aria-disabled="true"><span class="search-result__body"><strong>No matches</strong><span>Try a company name, sector, stage, or neighborhood.</span></span></div><a class="search-results__cta" href="https://github.com/Nutlope/interactive-3d-map/issues/new?template=add-startup.yml" target="_blank" rel="noreferrer noopener">Know a startup that belongs here? Add it to the atlas ↗</a>`;
+    searchResults.innerHTML = `<div class="search-result" aria-disabled="true"><span class="search-result__body"><strong>No matches</strong><span>Try a company name, sector, stage, or neighborhood.</span></span></div><a class="search-results__cta" href="https://github.com/Nutlope/interactive-3d-map/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer noopener">Know a startup that belongs here? Add it to the atlas ↗</a>`;
     return;
   }
 

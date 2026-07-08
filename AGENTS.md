@@ -97,6 +97,34 @@ focus: { lat, lng, distance, height, rotation }
 
 Adjust these carefully and test the camera flight on desktop-sized viewports.
 
+## Adding a Startup (deterministic recipe)
+
+When asked to add a company, do exactly this and open a PR. Everything lives in
+`src/data.js`.
+
+1. Derive `id`: kebab-case the name (e.g. "Acme AI" -> `acme-ai`). It is also the
+   logo filename. Ensure it is unique in `STARTUPS`.
+2. Get `lat`/`lng` from the office address (Nominatim, Google Maps, or the user).
+   Do not guess coordinates.
+3. Append to `STARTUPS`, keeping the array alphabetized by `name`:
+   ```js
+   { id: "acme-ai", name: "Acme AI", lat: 40.7412, lng: -73.9896, area: "flatiron", stage: "Early-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://acme.ai/", source: "user", address: "123 Broadway, New York, NY" },
+   ```
+   - `area` is one of: `midtown`, `flatiron`, `west-side`, `soho`, `fidi`, `brooklyn`.
+   - `stage` is `"Early-Stage" | "Late-Stage" | "Public"` or `null`.
+   - `office` is `"HQ" | "Satellite Office"` or `null`.
+   - `sector`: reuse an existing sector string from the file when possible.
+   - Never invent `stage`, `office`, or `address`; use `null`/omit if unknown.
+4. Add a matching one-line entry to `COMPANY_INFO`:
+   ```js
+   "acme-ai": { blurb: "One factual line about the company.", loc: "Broadway · Flatiron" },
+   ```
+5. Logo: run `npm run logos` (network) or add `public/logos/acme-ai.svg`. Then
+   `rg -l "<text " public/logos` should not list the new id.
+6. If `STARTUPS.length` changed, update the count copy in `index.html` (rail
+   subtitle + search placeholder) and `README.md`.
+7. `npm run build` must pass. Then branch, commit, and open a PR with `gh`.
+
 ## Logo Pipeline
 
 `scripts/fetch-logos.mjs` writes a logo for every startup id.
