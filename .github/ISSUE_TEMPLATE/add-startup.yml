@@ -1,0 +1,108 @@
+name: Add a startup
+description: Submit an AI startup with a real NYC office to appear on the atlas.
+title: "Add startup: "
+labels: ["startup-submission"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep the atlas current. Fill this out and a maintainer
+        will place the pin, fetch the logo, and add the company to the map.
+  - type: input
+    id: company
+    attributes:
+      label: Company name
+      placeholder: e.g. Together AI
+    validations:
+      required: true
+  - type: input
+    id: website
+    attributes:
+      label: Website
+      placeholder: https://
+    validations:
+      required: true
+  - type: input
+    id: address
+    attributes:
+      label: NYC office address (street or cross-streets)
+      description: The pin is placed from this. A street corner is fine; no suite numbers needed.
+      placeholder: e.g. 777 3rd Ave, New York, NY
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Neighborhood
+      options:
+        - Midtown
+        - Flatiron / Union Square
+        - West Side / Chelsea
+        - SoHo / NoHo
+        - Tribeca / FiDi
+        - Brooklyn
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Stage
+      options:
+        - Early-Stage
+        - Late-Stage
+        - Public
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: sector
+    attributes:
+      label: Sector
+      options:
+        - AI/Data Infrastructure
+        - AI Application
+        - AI Interface
+        - Coding
+        - DevOps
+        - Enterprise Automation
+        - Financial Services
+        - Healthcare
+        - Legal
+        - Manufacturing & Industrials
+        - Marketplace
+        - Media/Creative
+        - Security
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: office
+    attributes:
+      label: Office type
+      options:
+        - HQ
+        - Satellite Office
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: blurb
+    attributes:
+      label: One-line description
+      description: A short, factual line about what the company does (under 90 characters).
+      placeholder: e.g. Cloud platform to train, fine-tune, and run open-source AI models.
+    validations:
+      required: true
+  - type: input
+    id: logo
+    attributes:
+      label: Logo (optional)
+      description: Link to an SVG or a page with the official logo. Otherwise the logo pipeline will try the site favicon.
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: This company has a real, current office in New York City.
+          required: true
