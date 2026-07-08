@@ -102,10 +102,47 @@ Adjust these carefully and test the camera flight on desktop-sized viewports.
 When asked to add a company, do exactly this and open a PR. Everything lives in
 `src/data.js`.
 
+Before editing, make sure you have enough contributor-supplied information. Ask
+for any missing required fields instead of guessing:
+
+- Company name.
+- Website.
+- NYC location for the map pin. Prefer a real office address or exact
+  latitude/longitude, but accept an approximate public area if the contributor
+  does not want to disclose an exact address (for example: "near Union Square",
+  "Flatiron around 23rd/Broadway", or "DUMBO waterfront").
+- Preferred logo SVG/PNG, or permission to fetch a logo from the company website.
+- One factual blurb about what the company does.
+- Stage (`"Early-Stage"`, `"Late-Stage"`, `"Public"`) and office type (`"HQ"` or
+  `"Satellite Office"`), if known. Use `null` if the contributor does not know.
+
+Do not add a company from only a city-level location, a guessed coworking space,
+or a remote-work claim. The pin may be approximate for privacy, but it must be
+anchored to a plausible NYC neighborhood, cross street, landmark, or map area
+supplied by the contributor.
+
 1. Derive `id`: kebab-case the name (e.g. "Acme AI" -> `acme-ai`). It is also the
    logo filename. Ensure it is unique in `STARTUPS`.
-2. Get `lat`/`lng` from the office address (Nominatim, Google Maps, or the user).
-   Do not guess coordinates.
+2. Validate the office location before adding it:
+   - If the contributor gives coordinates, confirm they land in New York City
+     and are consistent with the supplied address or neighborhood.
+   - If the contributor gives an address, geocode it with Nominatim, Google Maps,
+     or another map source and use the returned `lat`/`lng`.
+   - If the contributor gives only an approximate area, choose a representative
+     coordinate in that area and make the approximate nature explicit in the PR.
+     Do not add an `address` field for approximate-only submissions.
+     For example, "near Union Square" can use a coordinate near Union Square
+     Park, with `area: "flatiron"` and a `COMPANY_INFO.loc` like
+     `"Near Union Square"` instead of a street address.
+   - Prefer an address or office page supplied by the contributor. If verifying
+     from public sources, use authoritative current sources such as the company
+     website, careers page, contact page, press release, or a reputable company
+     profile.
+   - Do not claim the address is a verified company office unless you checked an
+     authoritative current source. If it is contributor-supplied but not
+     independently verified, set `source: "user"` and keep the address as
+     supplied.
+   - Do not guess coordinates.
 3. Append to `STARTUPS`, keeping the array alphabetized by `name`:
    ```js
    { id: "acme-ai", name: "Acme AI", lat: 40.7412, lng: -73.9896, area: "flatiron", stage: "Early-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://acme.ai/", source: "user", address: "123 Broadway, New York, NY" },
@@ -114,16 +151,29 @@ When asked to add a company, do exactly this and open a PR. Everything lives in
    - `stage` is `"Early-Stage" | "Late-Stage" | "Public"` or `null`.
    - `office` is `"HQ" | "Satellite Office"` or `null`.
    - `sector`: reuse an existing sector string from the file when possible.
-   - Never invent `stage`, `office`, or `address`; use `null`/omit if unknown.
+   - Never invent `stage`, `office`, or an exact `address`; use `null`/omit if
+     unknown. Omit `address` when the contributor only provided an approximate
+     area.
 4. Add a matching one-line entry to `COMPANY_INFO`:
    ```js
    "acme-ai": { blurb: "One factual line about the company.", loc: "Broadway · Flatiron" },
    ```
-5. Logo: run `npm run logos` (network) or add `public/logos/acme-ai.svg`. Then
-   `rg -l "<text " public/logos` should not list the new id.
+   For approximate-only pins, keep `loc` approximate too, e.g.
+   `"Near Union Square"` or `"DUMBO waterfront"`.
+5. Logo:
+   - First ask the contributor for a preferred official logo asset, ideally SVG
+     or transparent PNG.
+   - If they do not provide one, run `npm run logos` (network) or add
+     `public/logos/acme-ai.svg` from an official/company-controlled source.
+   - Do not use a generated initials fallback for a contributed startup unless
+     no official logo can be found and the PR notes that limitation.
+   - Run `rg -l "<text " public/logos`; the new id should not appear there.
 6. If `STARTUPS.length` changed, update the count copy in `index.html` (rail
    subtitle + search placeholder) and `README.md`.
 7. `npm run build` must pass. Then branch, commit, and open a PR with `gh`.
+
+The PR description should include the location source, whether the pin is exact
+or approximate, the logo source, validation performed, and build result.
 
 ## Logo Pipeline
 
@@ -168,4 +218,3 @@ git push origin main
 ```
 
 Never revert user changes to unrelated files. If the worktree is dirty before you start, inspect changes before editing overlapping files.
-
