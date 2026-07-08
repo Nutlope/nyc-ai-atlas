@@ -14,12 +14,13 @@ This repo is a Vite + Three.js single-page app for the NYC AI Atlas. Use this fi
 
 ## File Map
 
-- `index.html`: static shell, SEO/social metadata, top-level controls, dialogs, and source footer.
+- `index.html`: static shell, SEO/social metadata, the glass HUD skeleton (left rail, search trigger, mini map), and dialogs.
 - `src/main.js`: Three.js scene setup, camera flights, map meshes, buildings, landmarks, vehicles, labels, search, selection, UI state, and animation loop.
 - `src/geo.js`: hand-authored NYC polygons, parks, districts, subway paths, landmarks, and bridges.
 - `src/data.js`: data sources, area chapters, startup records, company blurbs, and context points.
-- `src/styles.css`: UI, overlays, labels, search modal, detail cards, responsive/mobile gate.
-- `tokens.css`: shared CSS variables.
+- `src/styles.css`: pixel-glass HUD styling: rail, labels, search modal, company card, and the touch bottom-sheet layout (no mobile gate; phones get a working map with a lighter GPU budget).
+- `tokens.css`: shared CSS variables (Geist single-font setup, 4-step type scale, glass tokens).
+- `public/fonts`: self-hosted Geist variable woff2 + OFL license.
 - `public/logos`: startup SVG logos, keyed by startup `id`.
 - `public/company-addresses.*`: generated address reports.
 - `scripts/fetch-logos.mjs`: regenerates logo SVGs from Simple Icons, company websites, favicon discovery, and direct asset overrides.
@@ -95,6 +96,34 @@ focus: { lat, lng, distance, height, rotation }
 ```
 
 Adjust these carefully and test the camera flight on desktop-sized viewports.
+
+## Adding a Startup (deterministic recipe)
+
+When asked to add a company, do exactly this and open a PR. Everything lives in
+`src/data.js`.
+
+1. Derive `id`: kebab-case the name (e.g. "Acme AI" -> `acme-ai`). It is also the
+   logo filename. Ensure it is unique in `STARTUPS`.
+2. Get `lat`/`lng` from the office address (Nominatim, Google Maps, or the user).
+   Do not guess coordinates.
+3. Append to `STARTUPS`, keeping the array alphabetized by `name`:
+   ```js
+   { id: "acme-ai", name: "Acme AI", lat: 40.7412, lng: -73.9896, area: "flatiron", stage: "Early-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://acme.ai/", source: "user", address: "123 Broadway, New York, NY" },
+   ```
+   - `area` is one of: `midtown`, `flatiron`, `west-side`, `soho`, `fidi`, `brooklyn`.
+   - `stage` is `"Early-Stage" | "Late-Stage" | "Public"` or `null`.
+   - `office` is `"HQ" | "Satellite Office"` or `null`.
+   - `sector`: reuse an existing sector string from the file when possible.
+   - Never invent `stage`, `office`, or `address`; use `null`/omit if unknown.
+4. Add a matching one-line entry to `COMPANY_INFO`:
+   ```js
+   "acme-ai": { blurb: "One factual line about the company.", loc: "Broadway · Flatiron" },
+   ```
+5. Logo: run `npm run logos` (network) or add `public/logos/acme-ai.svg`. Then
+   `rg -l "<text " public/logos` should not list the new id.
+6. If `STARTUPS.length` changed, update the count copy in `index.html` (rail
+   subtitle + search placeholder) and `README.md`.
+7. `npm run build` must pass. Then branch, commit, and open a PR with `gh`.
 
 ## Logo Pipeline
 

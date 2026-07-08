@@ -33,7 +33,6 @@ const canvas = document.querySelector("#scene");
 const labelsLayer = document.querySelector("#labelsLayer");
 const areaList = document.querySelector("#areaList");
 const detailCard = document.querySelector("#detailCard");
-const progressRail = document.querySelector("#progressRail");
 const miniMapPoints = document.querySelector("#miniMapPoints");
 const searchInput = document.querySelector("#companySearch");
 const searchResults = document.querySelector("#searchResults");
@@ -41,8 +40,13 @@ const searchTrigger = document.querySelector("#searchTrigger");
 const searchModal = document.querySelector("#searchModal");
 let searchActiveIndex = -1;
 const labelToggle = document.querySelector("#labelToggle");
+const pinLegend = document.querySelector("#pinLegend");
 
-const HORIZON = 0xcfe6f2; // pale sky at the horizon — fog fades toward this
+// Active-area description, moved under the selected row in the rail.
+const areaDescEl = document.createElement("p");
+areaDescEl.className = "area-desc";
+
+const HORIZON = 0xcfe6f2; // pale sky at the horizon; fog fades toward this
 
 function makeSkyTexture() {
   const c = document.createElement("canvas");
@@ -63,11 +67,14 @@ function makeSkyTexture() {
 
 const scene = new THREE.Scene();
 scene.background = makeSkyTexture();
-scene.fog = new THREE.FogExp2(HORIZON, 0.0062);
+scene.fog = new THREE.FogExp2(HORIZON, 0.0052);
+
+// Phones get a lighter GPU budget: capped pixel ratio and a smaller shadow map.
+const smallScreen = window.matchMedia("(max-width: 54rem)").matches;
 
 const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 500);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, smallScreen ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -99,12 +106,15 @@ const vehicleFleet = [];
 const ferryFleet = [];
 const planeFleet = [];
 const subwayFleet = [];
+const birdFleet = [];
+let birdMesh = null;
 const treeBuffer = []; // { x, z, type: "conifer"|"round", scale, rot, colorIndex }
 let hoverCandidate = null;
+let pointerDown = null; // { x, y, item } captured on pointerdown to tell clicks from drags
 
-// Greenery palette — a spread of NYC park greens for per-instance tree color.
+// Greenery palette: a spread of NYC park greens for per-instance tree color.
 const GREEN_PALETTE = [
-  0x3b7437, 0x4f9652, 0x5ba350, 0x6fae4f, 0x86c263, 0x9bcf78, 0x6b9b3c,
+  0x3d6b39, 0x4a7d45, 0x557f42, 0x5e8a4c, 0x6d9a58, 0x7fa866, 0x4f7237,
 ].map((c) => new THREE.Color(c));
 
 const colors = {
@@ -114,41 +124,88 @@ const colors = {
   yellow: new THREE.Color(0xffcc4d),
   red: new THREE.Color(0xe54c42),
   graphite: new THREE.Color(0x19202b),
-  land: new THREE.Color(0xd6d0ad),
-  land2: new THREE.Color(0xc8d89a),
+  land: new THREE.Color(0xd2cec2),
+  land2: new THREE.Color(0xc7c2b2),
   road: new THREE.Color(0x2b2f38),
   building: new THREE.Color(0xd9d6ca),
   buildingDark: new THREE.Color(0x8e9899),
 };
 
+// Near-white concrete mottle multiplied over the land fills: block-scale
+// tonal blotches plus fine speckle, so the ground stops reading as one
+// flat sheet of beige. Generated once; zero per-frame cost.
+function makeGroundTexture() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 512;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, 512, 512);
+  const rand = seededRandom(4242);
+  for (let i = 0; i < 70; i += 1) {
+    const r = 36 + rand() * 96;
+    const x = rand() * 512;
+    const y = rand() * 512;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    const warm = rand() > 0.5;
+    g.addColorStop(0, warm ? "rgba(150, 138, 116, 0.05)" : "rgba(96, 104, 116, 0.05)");
+    g.addColorStop(1, "rgba(120, 120, 120, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  for (let i = 0; i < 2400; i += 1) {
+    ctx.fillStyle = `rgba(72, 78, 88, ${0.012 + rand() * 0.03})`;
+    const s = 1 + rand() * 2.4;
+    ctx.fillRect(rand() * 512, rand() * 512, s, s);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(0.22, 0.22);
+  tex.anisotropy = 4;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const groundTexture = makeGroundTexture();
+
 const materials = {
   water: new THREE.MeshStandardMaterial({
-    color: 0x1d6fa0,
-    roughness: 0.34,
-    metalness: 0.22,
+    color: 0x2a6488,
+    roughness: 0.4,
+    metalness: 0.18,
   }),
   land: new THREE.MeshStandardMaterial({
     color: colors.land,
+    map: groundTexture,
     roughness: 0.82,
+    side: THREE.DoubleSide,
+  }),
+  // Manhattan's ground plane IS the street surface; blocks sit on it as
+  // raised sidewalk plates, so streets need no line meshes at all.
+  asphalt: new THREE.MeshStandardMaterial({
+    color: 0x7a7e85,
+    map: groundTexture,
+    roughness: 0.96,
     side: THREE.DoubleSide,
   }),
   landAlt: new THREE.MeshStandardMaterial({
     color: colors.land2,
+    map: groundTexture,
     roughness: 0.9,
     side: THREE.DoubleSide,
   }),
   park: new THREE.MeshStandardMaterial({
-    color: 0x74b85c,
+    color: 0x679c58,
     roughness: 0.9,
     side: THREE.DoubleSide,
   }),
   parkLight: new THREE.MeshStandardMaterial({
-    color: 0x9bcf78,
+    color: 0x86ad6c,
     roughness: 0.92,
     side: THREE.DoubleSide,
   }),
   parkDark: new THREE.MeshStandardMaterial({
-    color: 0x4f9652,
+    color: 0x4c7847,
     roughness: 0.95,
     side: THREE.DoubleSide,
   }),
@@ -157,17 +214,17 @@ const materials = {
     roughness: 0.86,
   }),
   pond: new THREE.MeshStandardMaterial({
-    color: 0x2f8fb2,
+    color: 0x467f9b,
     roughness: 0.46,
     metalness: 0.04,
     side: THREE.DoubleSide,
   }),
   road: new THREE.MeshStandardMaterial({
-    color: 0x7b7e85,
+    color: 0x5b6068,
     roughness: 0.82,
   }),
   street: new THREE.MeshStandardMaterial({
-    color: 0x9a9b96,
+    color: 0x767b82,
     roughness: 0.86,
   }),
   rail: new THREE.MeshStandardMaterial({
@@ -204,7 +261,7 @@ const materials = {
     roughness: 0.9,
   }),
   hill: new THREE.MeshStandardMaterial({
-    color: 0x6fae5a,
+    color: 0x63904f,
     roughness: 0.96,
     flatShading: true,
   }),
@@ -230,18 +287,8 @@ const materials = {
     emissive: new THREE.Color(0x072b19),
   }),
   ghost: new THREE.MeshStandardMaterial({
-    color: 0xdce8ee,
-    roughness: 1,
-    transparent: true,
-    opacity: 0.55,
-    depthWrite: false,
-  }),
-  haze: new THREE.MeshBasicMaterial({
-    color: 0xd2e6f0,
-    transparent: true,
-    opacity: 0.46,
-    depthWrite: false,
-    side: THREE.DoubleSide,
+    color: 0xd8d4c9,
+    roughness: 0.95,
   }),
   ferry: new THREE.MeshStandardMaterial({
     color: 0xf4f1e8,
@@ -361,20 +408,62 @@ function makeCurveTube(points, radius, material, segments = 48) {
 }
 
 function createLights() {
-  const hemi = new THREE.HemisphereLight(0xdbefff, 0x3c3424, 2.4);
+  const hemi = new THREE.HemisphereLight(0xdbefff, 0x4a4335, 2.75);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(0xfff2d6, 3.2);
-  sun.position.set(-36, 70, 42);
+  const sun = new THREE.DirectionalLight(0xffedc9, 3.45);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(smallScreen ? 1024 : 2048, smallScreen ? 1024 : 2048);
   sun.shadow.camera.near = 2;
-  sun.shadow.camera.far = 180;
+  sun.shadow.camera.far = 220;
+  // The city footprint spans roughly x [-45, 55], z [-110, 45], so the shadow
+  // box is recentered on it (the old origin-centered box cut Harlem off).
+  // The bias pair removes acne/peter-panning on the box facades.
   sun.shadow.camera.left = -80;
   sun.shadow.camera.right = 80;
   sun.shadow.camera.top = 80;
   sun.shadow.camera.bottom = -80;
+  sun.shadow.bias = -0.00035;
+  sun.shadow.normalBias = 0.02;
+  sun.target.position.set(5, 0, -32);
+  sun.position.set(5 - 52, 46, -32 + 40);
+  scene.add(sun.target);
   scene.add(sun);
+
+  createSunGlow();
+}
+
+// A single additive glow sprite hanging in the sun's direction: gives the
+// sky a light source and the haze a reason, for the cost of one sprite.
+function createSunGlow() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, "rgba(255, 247, 224, 0.95)");
+  g.addColorStop(0.22, "rgba(255, 238, 200, 0.5)");
+  g.addColorStop(0.55, "rgba(255, 228, 184, 0.16)");
+  g.addColorStop(1, "rgba(255, 228, 184, 0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+    }),
+  );
+  // Same azimuth as the sun light, dropped near the horizon so orbiting
+  // cameras actually catch it over the Hudson.
+  sprite.position.set(-200, 82, 128);
+  sprite.scale.setScalar(170);
+  scene.add(sprite);
 }
 
 function createShoreline(coords) {
@@ -467,6 +556,38 @@ function scatterTreesInPoly(poly, count, random, opts = {}) {
 }
 
 // Build every queued tree into three instanced meshes (cones, blobs, trunks).
+// Street-tree rows along the avenues New Yorkers would expect them:
+// the Park Avenue median plus the Hudson and East River esplanades.
+function createStreetTrees() {
+  const rows = [
+    { from: [40.7365, -73.9885], to: [40.7825, -73.955], step: 0.8 },
+    { from: [40.7205, -74.0125], to: [40.7575, -73.9985], step: 0.95 },
+    { from: [40.708, -73.996], to: [40.7345, -73.9728], step: 1.05 },
+  ];
+  const random = seededRandom(9001);
+  rows.forEach((row) => {
+    const a = project(row.from[0], row.from[1]);
+    const b = project(row.to[0], row.to[1]);
+    const count = Math.max(2, Math.floor(a.distanceTo(b) / row.step));
+    for (let i = 0; i <= count; i += 1) {
+      const t = i / count;
+      const lat = row.from[0] + (row.to[0] - row.from[0]) * t;
+      const lng = row.from[1] + (row.to[1] - row.from[1]) * t;
+      if (!pointInPoly(lat, lng, MANHATTAN)) continue;
+      if (pointInPoly(lat, lng, CENTRAL_PARK)) continue;
+      const p = project(lat, lng);
+      treeBuffer.push({
+        x: p.x + (random() - 0.5) * 0.16,
+        z: p.z + (random() - 0.5) * 0.16,
+        type: "round",
+        scale: 0.48 + random() * 0.24,
+        rot: random() * Math.PI,
+        colorIndex: Math.floor(random() * GREEN_PALETTE.length),
+      });
+    }
+  });
+}
+
 function buildTrees() {
   if (!treeBuffer.length) return;
   const conifers = treeBuffer.filter((t) => t.type === "conifer");
@@ -620,18 +741,6 @@ function createHarborIslands() {
   });
 }
 
-function createHaze() {
-  // Soft mist over the outer boroughs (not Manhattan) so they read as
-  // intentionally unfinished. Two stacked translucent sheets give it depth;
-  // sit low enough that company pins poke above into clear air.
-  [JERSEY, BROOKLYN_QUEENS].forEach((poly) => {
-    [0.5, 0.92].forEach((y, i) => {
-      const mesh = makeShape(poly, materials.haze, y, false);
-      mesh.renderOrder = 2 + i;
-    });
-  });
-}
-
 function createBaseMap() {
   const waterGeo = new THREE.PlaneGeometry(260, 230, 80, 72);
   const water = new THREE.Mesh(waterGeo, materials.water);
@@ -642,7 +751,7 @@ function createBaseMap() {
   scene.add(water);
   waterSurfaces.push(water);
 
-  makeShape(MANHATTAN, materials.land, 0, true);
+  makeShape(MANHATTAN, materials.asphalt, 0, true);
   createShoreline(MANHATTAN);
 
   makeShape(BROOKLYN_QUEENS, materials.landAlt, 0, true);
@@ -679,73 +788,8 @@ const GRID = (() => {
   return { av, st, origin };
 })();
 
-function gridSegments(lines, instanceWidth, material, y) {
-  const segs = [];
-  for (const pts of lines) {
-    for (let i = 0; i < pts.length - 1; i += 1) {
-      const a = pts[i];
-      const b = pts[i + 1];
-      const midLat = (a[0] + b[0]) / 2;
-      const midLng = (a[1] + b[1]) / 2;
-      if (!pointInPoly(midLat, midLng, MANHATTAN)) continue;
-      if (pointInPoly(midLat, midLng, CENTRAL_PARK)) continue;
-      segs.push([a, b]);
-    }
-  }
-  if (!segs.length) return;
-  const geo = new THREE.BoxGeometry(1, 0.04, 1);
-  const mesh = new THREE.InstancedMesh(geo, material, segs.length);
-  mesh.receiveShadow = true;
-  const matrix = new THREE.Matrix4();
-  const quat = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  const pos = new THREE.Vector3();
-  segs.forEach((seg, idx) => {
-    const pa = project(seg[0][0], seg[0][1]);
-    const pb = project(seg[1][0], seg[1][1]);
-    const dx = pb.x - pa.x;
-    const dz = pb.z - pa.z;
-    const len = Math.hypot(dx, dz) + instanceWidth;
-    const angle = Math.atan2(dx, dz);
-    pos.set((pa.x + pb.x) / 2, y, (pa.z + pb.z) / 2);
-    quat.setFromAxisAngle(UP, angle);
-    scale.set(instanceWidth, 1, len);
-    matrix.compose(pos, quat, scale);
-    mesh.setMatrixAt(idx, matrix);
-  });
-  scene.add(mesh);
-}
 
-function gridLine(centerStepAv, centerStepSt, alongAv, halfLen, count) {
-  const { av, st, origin } = GRID;
-  const cLat = origin.lat + centerStepAv * av.dlat + centerStepSt * st.dlat;
-  const cLng = origin.lng + centerStepAv * av.dlng + centerStepSt * st.dlng;
-  const dir = alongAv ? av : st;
-  const pts = [];
-  for (let s = 0; s <= count; s += 1) {
-    const t = -halfLen + (s / count) * (halfLen * 2);
-    pts.push([cLat + t * dir.dlat, cLng + t * dir.dlng]);
-  }
-  return pts;
-}
 
-function createStreetGrid() {
-  const { av, st } = GRID;
-  void av;
-  void st;
-  // Avenues: long lines along the island axis, spaced crosstown.
-  const avenues = [];
-  for (let j = -7; j <= 7; j += 1) {
-    avenues.push(gridLine(0, j * 0.0026, true, 0.075, 90));
-  }
-  // Cross streets: spaced uptown, shorter spans.
-  const streets = [];
-  for (let i = -48; i <= 60; i += 1) {
-    streets.push(gridLine(i * 0.00094, 0, false, 0.028, 36));
-  }
-  gridSegments(streets, 0.026, materials.street, 0.12);
-  gridSegments(avenues, 0.05, materials.road, 0.125);
-}
 
 function createBridgeDetails() {
   const deckHeight = 0.62;
@@ -825,39 +869,50 @@ function createSubwayTrainMesh(color = 0x169b62) {
 }
 
 function createSubwayLayer() {
+  // MTA-diagram styling: white station discs with a dark rim over the
+  // colored route lines.
   const stationMaterial = new THREE.MeshStandardMaterial({
     color: 0xf6f7f4,
     roughness: 0.4,
     emissive: new THREE.Color(0x1a1a1a),
   });
-  const stationGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.06, 16);
+  const stationRimMaterial = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.6 });
+  const stationGeo = new THREE.CylinderGeometry(0.095, 0.095, 0.05, 16);
+  const stationRimGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.036, 16);
 
   SUBWAY_LINES.forEach((line, lineIndex) => {
     const lineMaterial = new THREE.MeshStandardMaterial({
       color: line.color,
       roughness: 0.45,
-      emissive: new THREE.Color(line.color).multiplyScalar(0.18),
+      emissive: new THREE.Color(line.color).multiplyScalar(0.3),
     });
-    const y = 0.2 + lineIndex * 0.012; // tiny stagger so overlapping lines don't z-fight
-    const { points } = makeTube(line.stops, 0.034, lineMaterial, y, line.stops.length * 12);
+    const y = 0.05 + lineIndex * 0.007; // tiny stagger so overlapping lines don't z-fight
+    const { points } = makeTube(line.stops, 0.04, lineMaterial, y, line.stops.length * 12);
 
     line.stops.forEach(([lat, lng]) => {
-      const p = project(lat, lng, y + 0.04);
+      const p = project(lat, lng, y + 0.035);
+      const rim = new THREE.Mesh(stationRimGeo, stationRimMaterial);
+      rim.position.copy(p);
+      scene.add(rim);
       const disk = new THREE.Mesh(stationGeo, stationMaterial);
       disk.position.copy(p);
+      disk.position.y += 0.02;
       scene.add(disk);
     });
 
-    // One train per line
-    const train = createSubwayTrainMesh(line.color);
-    scene.add(train);
-    subwayFleet.push({
-      mesh: train,
-      path: points,
-      t: lineIndex * 0.27,
-      speed: 0.016 + lineIndex * 0.002,
-      y: y + 0.14,
-    });
+    // One train per line; the long trunk lines run a second.
+    const trainCount = line.stops.length >= 10 ? 2 : 1;
+    for (let i = 0; i < trainCount; i += 1) {
+      const train = createSubwayTrainMesh(line.color);
+      scene.add(train);
+      subwayFleet.push({
+        mesh: train,
+        path: points,
+        t: lineIndex * 0.27 + i * 0.5,
+        speed: 0.016 + lineIndex * 0.002,
+        y: y + 0.14,
+      });
+    }
   });
 
   addLandmarkLabel("Grand Central", 40.7527, -73.9772, 2.7);
@@ -917,9 +972,35 @@ function createFerries() {
   routes.forEach((route, index) => {
     const points = route.path.map(([lat, lng]) => project(lat, lng, 0.1));
     const mesh = createFerryMesh(route.color);
+    mesh.add(createWake());
     scene.add(mesh);
     ferryFleet.push({ mesh, path: points, t: index * 0.43, speed: 0.013 + index * 0.004, lane: 0 });
   });
+}
+
+// A soft white trail that rides behind each ferry; static texture, no
+// per-frame updates, it just travels with its parent.
+function createWake() {
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 128;
+  const ctx = c.getContext("2d");
+  // After the plane is laid flat (rotation.x = -PI/2) the canvas bottom edge
+  // faces the stern, so the bright end of the trail lives at y = 128.
+  const grad = ctx.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0, "rgba(255,255,255,0)");
+  grad.addColorStop(0.65, "rgba(255,255,255,0.3)");
+  grad.addColorStop(1, "rgba(255,255,255,0.75)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 128);
+  const tex = new THREE.CanvasTexture(c);
+  const wake = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.42, 1.7),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.55, depthWrite: false }),
+  );
+  wake.rotation.x = -Math.PI / 2;
+  wake.position.set(0, -0.05, -1.25);
+  return wake;
 }
 
 function createPlaneMesh() {
@@ -1001,8 +1082,11 @@ function createRoadsAndRails() {
 
   // Hidden smooth paths that the traffic drives along (the visible grid is
   // rendered separately). Kept invisible so cars appear to follow streets.
-  const roadPaths = roadRoutes.map((route) => makeTube(route, 0.05, materials.road, 0.13, 80));
-  createStreetGrid();
+  const roadPaths = roadRoutes.map((route) => {
+    const tube = makeTube(route, 0.042, materials.road, 0.05, 80);
+    tube.mesh.visible = false; // traffic guide only; the asphalt ground is the road
+    return tube;
+  });
   createBridgeDetails();
 
   return roadPaths;
@@ -1024,49 +1108,143 @@ function buildingAllowed(lat, lng) {
   return true;
 }
 
+// Bake a "street canyon" gradient into a unit box: vertices near the base get
+// darker vertex colors, which multiply with per-instance colors for free
+// ambient-occlusion-style grounding (no per-frame cost).
+function bakeBaseShade(geometry, floor = 0.78) {
+  const pos = geometry.attributes.position;
+  const shades = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i += 1) {
+    const t = Math.min(1, Math.max(0, (pos.getY(i) + 0.5) / 0.45));
+    const shade = floor + (1 - floor) * t;
+    shades[i * 3] = shade;
+    shades[i * 3 + 1] = shade;
+    shades[i * 3 + 2] = shade;
+  }
+  geometry.setAttribute("color", new THREE.BufferAttribute(shades, 3));
+  return geometry;
+}
+
 function createBuildings() {
   const random = seededRandom(43);
   const instances = [];
 
-  for (const district of DISTRICTS) {
+  // Manhattan buildings live INSIDE street blocks, aligned to the same
+  // lattice the visible grid draws. Shared block placement is what makes the
+  // city read as a real city instead of scattered boxes.
+  const CELL_U = 0.00094; // street-to-street spacing (degree units along av)
+  const CELL_V = 0.0026; // avenue-to-avenue spacing (degree units along st)
+  const gridOrigin = project(GRID.origin.lat, GRID.origin.lng);
+  const uVec = project(
+    GRID.origin.lat + GRID.av.dlat * CELL_U,
+    GRID.origin.lng + GRID.av.dlng * CELL_U,
+  ).sub(gridOrigin); // short block side (street to street)
+  const vVec = project(
+    GRID.origin.lat + GRID.st.dlat * CELL_V,
+    GRID.origin.lng + GRID.st.dlng * CELL_V,
+  ).sub(gridOrigin); // long block side (avenue to avenue)
+  const uLen = uVec.length();
+  const vLen = vVec.length();
+  const gridRot = Math.atan2(uVec.x, uVec.z); // building depth spans street-to-street
+
+  const filledCells = new Set();
+  const blockPlates = []; // one raised sidewalk plate per city block
+  DISTRICTS.filter((district) => !district.faded).forEach((district) => {
     const [latMin, latMax, lngMin, lngMax] = district.bbox;
-    let placed = 0;
+    for (let i = -52; i <= 98; i += 1) {
+      for (let j = -8; j <= 8; j += 1) {
+        const u = (i + 0.5) * CELL_U;
+        const v = (j + 0.5) * CELL_V;
+        const lat = GRID.origin.lat + GRID.av.dlat * u + GRID.st.dlat * v;
+        const lng = GRID.origin.lng + GRID.av.dlng * u + GRID.st.dlng * v;
+        if (lat < latMin || lat > latMax || lng < lngMin || lng > lngMax) continue;
+        const key = `${i}:${j}`;
+        if (filledCells.has(key)) continue;
+        if (!buildingAllowed(lat, lng)) continue;
+        filledCells.add(key);
+        const center = project(lat, lng);
+        blockPlates.push({ x: center.x, z: center.z });
+        // 2-3 lots along the long side of each block; a few stay vacant.
+        const lots = random() < 0.3 ? 3 : 2;
+        for (let slot = 0; slot < lots; slot += 1) {
+          if (random() < 0.09) continue;
+          const tall = random() < district.tall;
+          const base = district.h[0];
+          const span = district.h[1] - district.h[0];
+          // Bias toward shorter buildings; only "tall" picks reach the top.
+          const h = tall ? base + (0.55 + random() * 0.45) * span : base + Math.pow(random(), 1.7) * span * 0.7;
+          const slotT = (slot + 0.5) / lots - 0.5;
+          const p = center
+            .clone()
+            .addScaledVector(vVec, slotT * 0.8)
+            .addScaledVector(uVec, (random() - 0.5) * 0.08);
+          const grow = tall ? 1.12 : 1;
+          const w = Math.min(vLen * 0.42, ((vLen * 0.78) / lots) * (0.68 + random() * 0.24) * grow);
+          const d = uLen * (0.5 + random() * 0.15) * grow;
+          instances.push({ x: p.x, z: p.z, h, w, d, rot: gridRot, shade: random(), roof: random(), faded: false });
+        }
+      }
+    }
+  });
+
+  // Outer boroughs keep loose placement, but each borough shares one street
+  // orientation (with a whisper of jitter) and buildings never interpenetrate.
+  const boroughRot = {
+    "Brooklyn-N": gridRot + 0.9,
+    "Brooklyn-S": gridRot + 0.55,
+    "LIC/Queens": gridRot + 0.2,
+    JerseyCity: gridRot + 0.12,
+  };
+  DISTRICTS.filter((district) => district.faded).forEach((district) => {
+    const [latMin, latMax, lngMin, lngMax] = district.bbox;
+    const placedSpots = [];
+    let count = 0;
     let guard = 0;
-    const cap = district.count * 14;
-    while (placed < district.count && guard < cap) {
+    const cap = district.count * 16;
+    while (count < district.count && guard < cap) {
       guard += 1;
       const lat = latMin + random() * (latMax - latMin);
       const lng = lngMin + random() * (lngMax - lngMin);
       if (!buildingAllowed(lat, lng)) continue;
       const p = project(lat, lng);
-      const tall = random() < district.tall;
+      const w = 0.34 + random() * 0.6;
+      const d = 0.34 + random() * 0.66;
+      const r = Math.max(w, d) * 0.72;
+      if (
+        placedSpots.some(
+          (q) => (q.x - p.x) * (q.x - p.x) + (q.z - p.z) * (q.z - p.z) < (q.r + r) * (q.r + r) * 0.62,
+        )
+      )
+        continue;
+      placedSpots.push({ x: p.x, z: p.z, r });
       const base = district.h[0];
       const span = district.h[1] - district.h[0];
-      // Bias toward shorter buildings; only "tall" picks reach the top of range.
-      const h = tall ? base + (0.55 + random() * 0.45) * span : base + Math.pow(random(), 1.7) * span * 0.7;
-      const w = 0.32 + random() * 0.78;
-      const d = 0.32 + random() * 0.92;
+      const h = base + Math.pow(random(), 1.6) * span;
       instances.push({
         x: p.x,
         z: p.z,
         h,
         w,
         d,
-        rot: random() * Math.PI,
+        rot: (boroughRot[district.name] ?? gridRot) + (random() - 0.5) * 0.1,
         shade: random(),
         roof: random(),
-        faded: !!district.faded,
+        faded: true,
       });
-      placed += 1;
+      count += 1;
     }
-  }
+  });
 
   // Faded outer-borough buildings render as flat, pale "ghost" blocks.
   const fadedBoxes = instances.filter((b) => b.faded);
   const solidBoxes = instances.filter((b) => !b.faded);
   if (fadedBoxes.length) {
-    const ghostGeo = new THREE.BoxGeometry(1, 1, 1);
-    const ghostMesh = new THREE.InstancedMesh(ghostGeo, materials.ghost, fadedBoxes.length);
+    const ghostGeo = bakeBaseShade(new THREE.BoxGeometry(1, 1, 1), 0.88);
+    // Clone: landmark blocks reuse these materials with plain geometry, and
+    // vertexColors on a geometry without a color attribute renders black.
+    const ghostMaterial = materials.ghost.clone();
+    ghostMaterial.vertexColors = true;
+    const ghostMesh = new THREE.InstancedMesh(ghostGeo, ghostMaterial, fadedBoxes.length);
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const s = new THREE.Vector3();
@@ -1086,8 +1264,10 @@ function createBuildings() {
   instances.length = 0;
   instances.push(...solidBoxes);
 
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const mesh = new THREE.InstancedMesh(geometry, materials.building, instances.length);
+  const geometry = bakeBaseShade(new THREE.BoxGeometry(1, 1, 1));
+  const buildingMaterial = materials.building.clone();
+  buildingMaterial.vertexColors = true;
+  const mesh = new THREE.InstancedMesh(geometry, buildingMaterial, instances.length);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   const matrix = new THREE.Matrix4();
@@ -1097,21 +1277,21 @@ function createBuildings() {
   // A small palette of NYC facade tones: warm stone, concrete, brick, glass.
   const palette = [
     new THREE.Color(0xe3ded0), // limestone
-    new THREE.Color(0xcdbfa6), // sandstone
+    new THREE.Color(0xcfc5af), // sandstone
     new THREE.Color(0xb7b9b3), // concrete
-    new THREE.Color(0xc28d72), // brick / terracotta
-    new THREE.Color(0x9fb6c4), // cool glass
+    new THREE.Color(0xb28a70), // brick / terracotta
+    new THREE.Color(0xa6b4bf), // cool glass
     new THREE.Color(0xd8d2c4), // pale stone
   ];
   const color = new THREE.Color();
   // Roof tones add pops of color across the otherwise stone city.
   const roofPalette = [
-    new THREE.Color(0x5a636c), // slate
-    new THREE.Color(0x4a525b), // dark slate
-    new THREE.Color(0xb15a3c), // terracotta
-    new THREE.Color(0x7c3b34), // oxide red
-    new THREE.Color(0x4f6b4d), // weathered green
-    new THREE.Color(0x8a7f6b), // tar/gravel
+    new THREE.Color(0x646c75), // slate
+    new THREE.Color(0x565e66), // dark slate
+    new THREE.Color(0x9c6a4e), // terracotta
+    new THREE.Color(0x74524a), // oxide red
+    new THREE.Color(0x5f6a5a), // weathered green
+    new THREE.Color(0x968e7d), // tar/gravel
   ];
   const roofColor = new THREE.Color();
 
@@ -1120,10 +1300,26 @@ function createBuildings() {
   roofMesh.receiveShadow = true;
   let roofCount = 0;
 
-  const windowMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), materials.window, instances.length * 8);
+  const windowMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), materials.window, instances.length * 22);
   windowMesh.castShadow = false;
   windowMesh.receiveShadow = true;
   let windowCount = 0;
+
+  const storefrontMesh = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshStandardMaterial({ color: 0x2e343c, roughness: 0.35, metalness: 0.08 }),
+    instances.length,
+  );
+  storefrontMesh.castShadow = false;
+  storefrontMesh.receiveShadow = true;
+  let storefrontCount = 0;
+
+  // Rooftop detail collected during the main pass, instanced afterwards:
+  // wedding-cake setback tiers, wooden water tanks, and AC units.
+  const tiers = [];
+  const tanks = [];
+  const acUnits = [];
+  const rooftopOffset = new THREE.Vector3();
 
   instances.forEach((box, index) => {
     pos.set(box.x, box.h / 2, box.z);
@@ -1139,22 +1335,58 @@ function createBuildings() {
     color.copy(tone).offsetHSL(0, 0, (box.shade - 0.5) * 0.06);
     mesh.setColorAt(index, color);
 
+    // Classic NYC setback: taller towers step in for their top section.
+    const tiered = box.h > 2.6 && box.roof > 0.35;
+    if (tiered) {
+      tiers.push({
+        x: box.x,
+        z: box.z,
+        rot: box.rot,
+        w: box.w * 0.62,
+        d: box.d * 0.62,
+        y: box.h,
+        h: Math.min(1.6, box.h * 0.28),
+        color: color.clone().offsetHSL(0, 0, 0.03),
+      });
+    }
+    const roofTopY = tiered ? box.h + tiers[tiers.length - 1].h : box.h;
+    const roofW = tiered ? box.w * 0.62 : box.w;
+    const roofD = tiered ? box.d * 0.62 : box.d;
+
     if (box.roof > 0.5 || box.h > 4.4) {
-      pos.set(box.x, box.h + 0.08, box.z);
-      scale.set(box.w * (0.46 + box.roof * 0.28), 0.12, box.d * (0.44 + box.roof * 0.26));
+      pos.set(box.x, roofTopY + 0.08, box.z);
+      scale.set(roofW * (0.46 + box.roof * 0.28), 0.12, roofD * (0.44 + box.roof * 0.26));
       matrix.compose(pos, quat, scale);
       roofMesh.setMatrixAt(roofCount, matrix);
       // Mostly muted slate/gravel; ~30% get a warmer terracotta/red/green pop.
-      const warm = box.shade > 0.7 && box.h < 2.2;
+      const warm = box.shade > 0.84 && box.h < 2.2;
       roofColor.copy(roofPalette[warm ? 2 + (Math.floor(box.roof * 3) % 3) : box.roof > 0.5 ? 0 : 5]);
       roofMesh.setColorAt(roofCount, roofColor);
       roofCount += 1;
     }
 
+    // Wooden water tanks on a share of the mid-rise stock, AC boxes on most
+    // roofs: the two props that make aerial NYC read as NYC.
+    if (!tiered && box.h > 1.05 && box.h <= 2.6 && box.roof > 0.58) {
+      rooftopOffset.set(box.w * 0.2, 0, box.d * 0.16).applyAxisAngle(UP, box.rot);
+      tanks.push({ x: box.x + rooftopOffset.x, z: box.z + rooftopOffset.z, y: box.h, s: 0.8 + box.shade * 0.5 });
+    }
+    if (box.h > 0.85 && box.shade > 0.42) {
+      rooftopOffset.set(-box.w * 0.21, 0, box.d * 0.2).applyAxisAngle(UP, box.rot);
+      acUnits.push({ x: box.x + rooftopOffset.x, z: box.z + rooftopOffset.z, y: roofTopY, rot: box.rot });
+      if (box.shade > 0.78 && !tiered) {
+        rooftopOffset.set(box.w * 0.24, 0, -box.d * 0.18).applyAxisAngle(UP, box.rot);
+        acUnits.push({ x: box.x + rooftopOffset.x, z: box.z + rooftopOffset.z, y: box.h, rot: box.rot + 0.5 });
+      }
+    }
+
+    const front = new THREE.Vector3(Math.sin(box.rot), 0, Math.cos(box.rot));
+    const side = new THREE.Vector3(Math.cos(box.rot), 0, -Math.sin(box.rot));
+
     if (box.h > 1.7) {
-      const floors = Math.min(4, Math.floor(box.h / 1.2));
-      const front = new THREE.Vector3(Math.sin(box.rot), 0, Math.cos(box.rot));
-      const side = new THREE.Vector3(Math.cos(box.rot), 0, -Math.sin(box.rot));
+      const floors = Math.min(5, Math.floor(box.h / 1.05));
+      // Taller buildings get bands on all four faces; mid-rises on two.
+      const allFaces = box.h > 2.2;
       for (let floor = 1; floor <= floors; floor += 1) {
         const y = Math.min(box.h - 0.35, floor * (box.h / (floors + 1)));
         pos.set(box.x, y, box.z).addScaledVector(front, box.d / 2 + 0.018);
@@ -1168,7 +1400,30 @@ function createBuildings() {
         matrix.compose(pos, quat, scale);
         windowMesh.setMatrixAt(windowCount, matrix);
         windowCount += 1;
+
+        if (allFaces) {
+          pos.set(box.x, y + 0.05, box.z).addScaledVector(front, -(box.d / 2 + 0.018));
+          scale.set(box.w * 0.72, 0.035, 0.02);
+          matrix.compose(pos, quat, scale);
+          windowMesh.setMatrixAt(windowCount, matrix);
+          windowCount += 1;
+
+          pos.set(box.x, y + 0.15, box.z).addScaledVector(side, -(box.w / 2 + 0.018));
+          scale.set(0.02, 0.035, box.d * 0.7);
+          matrix.compose(pos, quat, scale);
+          windowMesh.setMatrixAt(windowCount, matrix);
+          windowCount += 1;
+        }
       }
+    }
+
+    // Street-level storefront glazing on the avenue-facing side.
+    if (box.h > 0.55 && box.shade > 0.25) {
+      pos.set(box.x, 0.13, box.z).addScaledVector(front, box.d / 2 + 0.012);
+      scale.set(box.w * 0.78, 0.22, 0.02);
+      matrix.compose(pos, quat, scale);
+      storefrontMesh.setMatrixAt(storefrontCount, matrix);
+      storefrontCount += 1;
     }
   });
   scene.add(mesh);
@@ -1176,7 +1431,89 @@ function createBuildings() {
   scene.add(roofMesh);
   windowMesh.count = windowCount;
   scene.add(windowMesh);
+  storefrontMesh.count = storefrontCount;
+  scene.add(storefrontMesh);
 
+  // Sidewalk plates: the city blocks themselves, floated just above the
+  // asphalt ground so the streets are the gaps between them. Avenue gaps run
+  // wider than cross-street gaps, like the real grid.
+  if (blockPlates.length) {
+    const plateMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1, 0.06, 1),
+      new THREE.MeshStandardMaterial({ color: 0xd7d3c7, roughness: 0.9 }),
+      blockPlates.length,
+    );
+    plateMesh.receiveShadow = true;
+    const plateColor = new THREE.Color();
+    blockPlates.forEach((plate, i) => {
+      pos.set(plate.x, 0, plate.z);
+      quat.setFromAxisAngle(UP, gridRot);
+      scale.set(vLen - 0.26, 1, uLen - 0.12);
+      matrix.compose(pos, quat, scale);
+      plateMesh.setMatrixAt(i, matrix);
+      plateColor.setHSL(0.09, 0.06, 0.8 + ((i * 2654435761) % 100) / 100 * 0.05);
+      plateMesh.setColorAt(i, plateColor);
+    });
+    scene.add(plateMesh);
+  }
+
+  if (tiers.length) {
+    const tierMesh = new THREE.InstancedMesh(geometry, buildingMaterial, tiers.length);
+    tierMesh.castShadow = true;
+    tierMesh.receiveShadow = true;
+    tiers.forEach((tier, i) => {
+      pos.set(tier.x, tier.y + tier.h / 2, tier.z);
+      quat.setFromAxisAngle(UP, tier.rot);
+      scale.set(tier.w, tier.h, tier.d);
+      matrix.compose(pos, quat, scale);
+      tierMesh.setMatrixAt(i, matrix);
+      tierMesh.setColorAt(i, tier.color);
+    });
+    scene.add(tierMesh);
+  }
+
+  if (tanks.length) {
+    const barrelMesh = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.075, 0.088, 0.17, 8),
+      new THREE.MeshStandardMaterial({ color: 0x82603f, roughness: 0.85 }),
+      tanks.length,
+    );
+    const lidMesh = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(0.09, 0.075, 8),
+      new THREE.MeshStandardMaterial({ color: 0x54402c, roughness: 0.8 }),
+      tanks.length,
+    );
+    barrelMesh.castShadow = true;
+    lidMesh.castShadow = true;
+    quat.identity();
+    tanks.forEach((tank, i) => {
+      scale.setScalar(tank.s);
+      pos.set(tank.x, tank.y + 0.085 * tank.s, tank.z);
+      matrix.compose(pos, quat, scale);
+      barrelMesh.setMatrixAt(i, matrix);
+      pos.set(tank.x, tank.y + (0.17 + 0.037) * tank.s, tank.z);
+      matrix.compose(pos, quat, scale);
+      lidMesh.setMatrixAt(i, matrix);
+    });
+    scene.add(barrelMesh);
+    scene.add(lidMesh);
+  }
+
+  if (acUnits.length) {
+    const acMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(0.095, 0.05, 0.075),
+      new THREE.MeshStandardMaterial({ color: 0xc3c8ce, roughness: 0.7 }),
+      acUnits.length,
+    );
+    acUnits.forEach((unit, i) => {
+      pos.set(unit.x, unit.y + 0.025, unit.z);
+      quat.setFromAxisAngle(UP, unit.rot);
+      scale.setScalar(1);
+      matrix.compose(pos, quat, scale);
+      acMesh.setMatrixAt(i, matrix);
+    });
+    scene.add(acMesh);
+  }
 }
 
 // Helper: a tapered tower with optional setbacks. Returns top Y.
@@ -1298,7 +1635,7 @@ function createLandmarks() {
     scene.add(drum);
   }
 
-  // --- The Vessel (Hudson Yards) — copper honeycomb cone ---
+  // --- The Vessel (Hudson Yards): copper honeycomb cone ---
   {
     const vp = project(LANDMARKS.vessel.lat, LANDMARKS.vessel.lng);
     const vessel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.28, 0.9, 12, 1, true), materials.copper);
@@ -1350,7 +1687,7 @@ function createLandmarks() {
     addLandmarkLabel("Statue of Liberty", LANDMARKS.statueLiberty.lat, LANDMARKS.statueLiberty.lng, 2.6);
   }
 
-  // --- Oculus (WTC transit hub) — ribbed white ellipsoid ---
+  // --- Oculus (WTC transit hub): ribbed white ellipsoid ---
   {
     const op = project(LANDMARKS.oculus.lat, LANDMARKS.oculus.lng);
     const oculus = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 8), stone);
@@ -1437,6 +1774,113 @@ function createMarkers() {
   CONTEXT_POINTS.forEach(createContextMarker);
 }
 
+/* ---------------------------------------------------------------- */
+/* Cinematic selection: spotlight beam, pulse rings, focus easing    */
+/* ---------------------------------------------------------------- */
+
+const FOG_BASE = scene.fog.density;
+const FOG_FOCUS = FOG_BASE * 1.38;
+const FOV_BASE = camera.fov;
+const FOV_FOCUS = FOV_BASE - 3;
+const FOCUS_COLOR = 0x3a6bff;
+let fogTarget = FOG_BASE;
+let fovTarget = FOV_BASE;
+let focusFx = null;
+
+function makeBeamTexture() {
+  const c = document.createElement("canvas");
+  c.width = 4;
+  c.height = 128;
+  const ctx = c.getContext("2d");
+  const grad = ctx.createLinearGradient(0, 128, 0, 0);
+  grad.addColorStop(0, "rgba(255,255,255,0.85)");
+  grad.addColorStop(0.55, "rgba(255,255,255,0.26)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 4, 128);
+  return new THREE.CanvasTexture(c);
+}
+
+function ensureFocusFx() {
+  if (focusFx) return focusFx;
+  const group = new THREE.Group();
+  group.visible = false;
+
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.55, 0.4, 7.5, 20, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: FOCUS_COLOR,
+      map: makeBeamTexture(),
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  beam.position.y = 3.75;
+  group.add(beam);
+
+  // Two expanding ground rings, half a cycle apart, for a continuous pulse.
+  const rings = [0, 1].map((i) => {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.5, 0.6, 40),
+      new THREE.MeshBasicMaterial({
+        color: FOCUS_COLOR,
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.06;
+    ring.userData.phase = i * 0.5;
+    group.add(ring);
+    return ring;
+  });
+
+  scene.add(group);
+  focusFx = { group, beam, rings };
+  return focusFx;
+}
+
+function engageFocus(startup) {
+  const fx = ensureFocusFx();
+  const p = project(startup.lat, startup.lng);
+  fx.group.position.set(p.x, 0.05, p.z);
+  fx.group.visible = true;
+  fogTarget = FOG_FOCUS;
+  fovTarget = FOV_FOCUS;
+}
+
+function releaseFocus() {
+  if (focusFx) focusFx.group.visible = false;
+  fogTarget = FOG_BASE;
+  fovTarget = FOV_BASE;
+}
+
+function updateFocusFx(elapsed, delta) {
+  // Ease fog density and FOV toward their targets for a soft push-in.
+  scene.fog.density += (fogTarget - scene.fog.density) * Math.min(1, delta * 2.6);
+  const fovStep = (fovTarget - camera.fov) * Math.min(1, delta * 3);
+  if (Math.abs(fovStep) > 0.0004) {
+    camera.fov += fovStep;
+    camera.updateProjectionMatrix();
+  }
+
+  if (!focusFx || !focusFx.group.visible) return;
+  focusFx.beam.material.opacity = 0.42 + Math.sin(elapsed * 2.1) * 0.1;
+  focusFx.beam.rotation.y = elapsed * 0.4;
+  focusFx.rings.forEach((ring) => {
+    const t = (elapsed * 0.62 + ring.userData.phase) % 1;
+    const scale = 1 + t * 2.3;
+    ring.scale.setScalar(scale);
+    ring.material.opacity = 0.5 * (1 - t) * (1 - t);
+  });
+}
+
 function createCarMesh(color) {
   const group = new THREE.Group();
   const bodyMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.42, metalness: 0.02 });
@@ -1501,7 +1945,8 @@ function createCarMesh(color) {
 }
 
 function createVehicles(roadPaths) {
-  const carColors = [0xe54c42, 0x2e6cff, 0xf2c14e, 0x30b37c, 0xf4f1e8];
+  // Weighted toward taxi yellow: roughly 4 in 10 cars read as NYC cabs.
+  const carColors = [0xf7b500, 0xe54c42, 0xf7b500, 0x2e6cff, 0xf7b500, 0x30b37c, 0xf4f1e8, 0xf7b500, 0x3c414b, 0x2e6cff];
   const random = seededRandom(700);
   for (let i = 0; i < 34; i += 1) {
     const mesh = createCarMesh(carColors[i % carColors.length]);
@@ -1566,6 +2011,74 @@ function updateTransit(delta) {
   });
 }
 
+// A dozen gulls circling the parks and the harbor: one instanced chevron
+// mesh, one draw call, a handful of matrix updates per frame.
+function createBirds() {
+  const wing = new Float32Array([
+    // left wing
+    0, 0, 0.16, -0.5, 0.12, -0.12, -0.05, 0, -0.06,
+    // right wing
+    0, 0, 0.16, 0.05, 0, -0.06, 0.5, 0.12, -0.12,
+  ]);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(wing, 3));
+  const material = new THREE.MeshBasicMaterial({ color: 0x2b3038, side: THREE.DoubleSide });
+
+  const flocks = [
+    { lat: 40.781, lng: -73.9665, alt: 6.4, radius: 4.6, count: 5 }, // Central Park
+    { lat: 40.696, lng: -74.021, alt: 4.6, radius: 5.2, count: 4 }, // the harbor
+    { lat: 40.7003, lng: -73.9955, alt: 5.2, radius: 3.4, count: 3 }, // Brooklyn Bridge
+  ];
+  const random = seededRandom(77);
+  flocks.forEach((flock) => {
+    const center = project(flock.lat, flock.lng, flock.alt);
+    for (let i = 0; i < flock.count; i += 1) {
+      birdFleet.push({
+        center,
+        radius: flock.radius * (0.72 + random() * 0.5),
+        alt: flock.alt + (random() - 0.5) * 1.6,
+        speed: (0.24 + random() * 0.2) * (random() < 0.5 ? 1 : -1),
+        phase: random() * Math.PI * 2,
+        flapHz: 5 + random() * 2.5,
+        size: 0.44 + random() * 0.22,
+      });
+    }
+  });
+
+  birdMesh = new THREE.InstancedMesh(geo, material, birdFleet.length);
+  birdMesh.frustumCulled = false;
+  scene.add(birdMesh);
+}
+
+const birdMatrix = new THREE.Matrix4();
+const birdQuat = new THREE.Quaternion();
+const birdEuler = new THREE.Euler();
+const birdPos = new THREE.Vector3();
+const birdScale = new THREE.Vector3();
+
+function updateBirds(elapsed) {
+  if (!birdMesh) return;
+  birdFleet.forEach((bird, i) => {
+    const dir = Math.sign(bird.speed);
+    const theta = bird.phase + elapsed * Math.abs(bird.speed) * dir;
+    birdPos.set(
+      bird.center.x + Math.cos(theta) * bird.radius,
+      bird.alt + Math.sin(elapsed * 1.1 + bird.phase) * 0.5,
+      bird.center.z + Math.sin(theta) * bird.radius,
+    );
+    // Face along the circle's tangent, banked gently into the turn.
+    const heading = Math.atan2(-Math.sin(theta) * dir, Math.cos(theta) * dir) + Math.PI / 2;
+    birdEuler.set(0, heading, 0.3 * dir, "YXZ");
+    birdQuat.setFromEuler(birdEuler);
+    // Wing flap: squash/stretch the chevron height.
+    const flap = 0.25 + Math.abs(Math.sin(elapsed * bird.flapHz + bird.phase)) * 1.35;
+    birdScale.set(bird.size, bird.size * flap, bird.size);
+    birdMatrix.compose(birdPos, birdQuat, birdScale);
+    birdMesh.setMatrixAt(i, birdMatrix);
+  });
+  birdMesh.instanceMatrix.needsUpdate = true;
+}
+
 function createClouds() {
   const material = new THREE.MeshStandardMaterial({
     color: 0xf4f1e8,
@@ -1626,7 +2139,7 @@ function createLabels() {
     button.dataset.stage = startup.stage ?? "";
     button.style.setProperty("--label-color", startup.stage === "Public" ? "var(--color-warning)" : startup.stage === "Late-Stage" ? "var(--color-accent-2)" : "var(--color-success)");
     button.innerHTML = `
-      <img class="marker-label__logo" src="${escapeHtml(logoPath(startup))}" alt="" loading="lazy" decoding="async">
+      <img class="marker-label__logo" src="${escapeHtml(logoPath(startup))}" alt="" loading="lazy" decoding="async" draggable="false">
       <span>${escapeHtml(startup.name)}</span>
       ${startup.stage ? `<small>${escapeHtml(startup.stage.replace("-Stage", ""))}</small>` : ""}
     `;
@@ -1673,6 +2186,7 @@ function updateLabels() {
     const selected = state.selectedId === startup.id;
 
     label.classList.toggle("is-muted", activeArea !== "all" && !activeItems.has(startup.id));
+    label.classList.toggle("is-dimmed", Boolean(state.selectedId) && !selected);
     label.classList.toggle("is-selected", selected);
 
     const show = visibleOnScreen && showByMode;
@@ -1773,6 +2287,21 @@ function updateLabels() {
   });
 }
 
+// Static legend explaining the stage colors used by pins and label tags.
+function renderPinLegend() {
+  const entries = [
+    { label: "Early", css: "var(--color-success)" },
+    { label: "Late", css: "var(--color-accent-2)" },
+    { label: "Public", css: "var(--color-warning)" },
+  ];
+  pinLegend.innerHTML = entries
+    .map(
+      (entry) =>
+        `<span class="pin-legend__item"><i style="background:${entry.css}"></i>${escapeHtml(entry.label)}</span>`,
+    )
+    .join("");
+}
+
 function renderAreaList() {
   areaList.innerHTML = "";
   AREAS.forEach((area) => {
@@ -1784,19 +2313,6 @@ function renderAreaList() {
     button.innerHTML = `<span class="area-button__number">${area.number}</span><span class="area-button__label">${escapeHtml(area.label)}</span><span class="area-button__count">${count}</span>`;
     button.addEventListener("click", () => setActiveArea(area.id));
     areaList.appendChild(button);
-  });
-}
-
-function renderProgressRail() {
-  progressRail.innerHTML = "";
-  AREAS.forEach((area) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "progress-dot";
-    button.dataset.area = area.id;
-    button.setAttribute("aria-label", area.label);
-    button.addEventListener("click", () => setActiveArea(area.id));
-    progressRail.appendChild(button);
   });
 }
 
@@ -1824,23 +2340,72 @@ function updateUiState() {
   document.querySelectorAll(".area-button").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.area === state.activeAreaId);
   });
-  document.querySelectorAll(".progress-dot").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.area === state.activeAreaId);
-  });
   document.querySelectorAll(".mini-point").forEach((point) => {
     const item = STARTUPS.find((startup) => startup.id === point.dataset.id);
     point.classList.toggle("is-active", item?.area === state.activeAreaId || state.activeAreaId === "all");
   });
-  labelToggle.querySelector("strong").textContent = state.labelsMode === "all" ? "All" : "Curated";
+  labelToggle.querySelectorAll("button").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.mode === state.labelsMode);
+  });
+  document.body.classList.toggle("is-focused", Boolean(state.selectedId));
+
+  // Slide the active area's description in right below its row.
+  const activeButton = areaList.querySelector(`.area-button[data-area="${state.activeAreaId}"]`);
+  const area = AREA_BY_ID[state.activeAreaId];
+  if (activeButton && area) {
+    areaDescEl.textContent = area.description;
+    activeButton.insertAdjacentElement("afterend", areaDescEl);
+  } else {
+    areaDescEl.remove();
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Deep links: #/company/:id and #/area/:id, with back/forward       */
+/* ---------------------------------------------------------------- */
+
+const BASE_TITLE = "NYC AI Atlas";
+let suppressHashEvent = false;
+
+function writeHash(hash) {
+  if (location.hash === hash) return;
+  suppressHashEvent = true;
+  location.hash = hash;
+}
+
+function shareUrl(hash) {
+  return `${location.origin}${location.pathname}${hash}`;
+}
+
+function applyHashFromLocation() {
+  const hash = location.hash || "#/";
+  const company = hash.match(/^#\/company\/([\w-]+)$/);
+  if (company && STARTUPS.some((s) => s.id === company[1])) {
+    selectStartup(company[1]);
+    return;
+  }
+  const area = hash.match(/^#\/area\/([\w-]+)$/);
+  if (area && AREA_BY_ID[area[1]]) {
+    setActiveArea(area[1]);
+    return;
+  }
+  if (hash === "#/" || hash === "#") setActiveArea("all");
 }
 
 function setActiveArea(areaId, { keepSelection = false } = {}) {
   state.activeAreaId = areaId;
-  if (!keepSelection) state.selectedId = null;
+  if (!keepSelection) {
+    state.selectedId = null;
+    releaseFocus();
+  }
   const area = AREA_BY_ID[areaId];
   flyTo(area.focus);
   renderAreaDetail(area);
   updateUiState();
+  if (!keepSelection) {
+    writeHash(areaId === "all" ? "#/" : `#/area/${areaId}`);
+    document.title = areaId === "all" ? BASE_TITLE : `${area.label} · ${BASE_TITLE}`;
+  }
 }
 
 function selectStartup(id) {
@@ -1848,31 +2413,31 @@ function selectStartup(id) {
   if (!startup) return;
   state.selectedId = id;
   state.activeAreaId = startup.area;
-  flyTo({ lat: startup.lat, lng: startup.lng, distance: 18, height: 16, rotation: 0.72 });
+  flyTo({ lat: startup.lat, lng: startup.lng, distance: 18, height: 16, rotation: 0.72 }, { cinematic: true });
+  engageFocus(startup);
   renderStartupDetail(startup);
   updateUiState();
+  writeHash(`#/company/${id}`);
+  document.title = `${startup.name} · ${BASE_TITLE}`;
 }
 
-function renderAreaDetail(area) {
+function renderAreaDetail() {
+  // The card slot shows a persistent "how to explore" guide whenever no
+  // company is selected; selecting a company swaps in its details.
+  if (state.selectedId) {
+    detailCard.classList.add("is-hidden");
+    detailCard.classList.remove("is-onboard");
+    return;
+  }
+  detailCard.classList.add("is-onboard");
   detailCard.classList.remove("is-hidden");
-  // The "Whole Board" is the landing screen — it doubles as a how-to-explore guide.
-  const onboarding =
-    area.id === "all"
-      ? `
-        <div class="onboard">
-          <p class="onboard__lead">How to explore</p>
-          <ul class="onboard__list">
-            <li><span class="onboard__keys"><kbd>↑</kbd><kbd>↓</kbd></span><span>Step through the 8 neighborhoods</span></li>
-            <li><span class="onboard__keys"><kbd>⌘</kbd><kbd>K</kbd></span><span>Search any company by name or sector</span></li>
-            <li><span class="onboard__keys onboard__keys--click">click</span><span>Tap a pin, the list at left, or the timeline at right</span></li>
-          </ul>
-        </div>`
-      : "";
   detailCard.innerHTML = `
-    <p class="detail-card__kicker">${escapeHtml(area.number)} / ${escapeHtml(area.shortLabel)}</p>
-    <h2>${escapeHtml(area.label)}</h2>
-    <p class="detail-card__blurb">${escapeHtml(area.description)}</p>
-    ${onboarding}
+    <p class="onboard-title">How to explore</p>
+    <ul class="onboard">
+      <li><span class="onboard__keys"><kbd>↑</kbd><kbd>↓</kbd></span><span>Step through the neighborhoods</span></li>
+      <li><span class="onboard__keys"><kbd>⌘</kbd><kbd>K</kbd></span><span>Search any company</span></li>
+      <li><span class="onboard__keys"><kbd class="onboard__click">click</kbd></span><span>Tap a pin for details</span></li>
+    </ul>
   `;
 }
 
@@ -1885,9 +2450,6 @@ function renderStartupDetail(startup) {
     `${startup.sector || "An AI company"} on the New York City map.`;
   const loc = info.loc || AREA_BY_ID[startup.area]?.shortLabel || "New York City";
 
-  // Chip row: stage + office only (sector is the subtitle, location is a fact).
-  const tags = [startup.stage, startup.office].filter(Boolean);
-
   let host = "";
   if (url) {
     try {
@@ -1897,47 +2459,82 @@ function renderStartupDetail(startup) {
     }
   }
 
-  detailCard.classList.remove("is-hidden");
+  const meta = [startup.stage ? startup.stage.replace("-Stage", " stage") : null, startup.office, loc]
+    .filter(Boolean)
+    .join(" · ");
+  // Optional enrichment fields; rendered only when the data actually has them.
+  const facts = [
+    startup.founded ? `Founded ${startup.founded}` : null,
+    startup.team ? `~${startup.team} people` : null,
+    startup.raised ? `Raised ${startup.raised}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const jobsUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(startup.name)}&location=New%20York`;
+
+  detailCard.classList.remove("is-hidden", "is-onboard");
   detailCard.innerHTML = `
     <button class="detail-card__close" type="button" aria-label="Close">&times;</button>
-    <div class="detail-card__title">
-      <img class="detail-card__logo" src="${escapeHtml(logoPath(startup))}" alt="" loading="lazy" decoding="async">
+    <div class="detail-card__head">
+      <img class="detail-card__logo" src="${escapeHtml(logoPath(startup))}" alt="" loading="lazy" decoding="async" draggable="false">
       <div class="detail-card__heading">
         <h2>${escapeHtml(startup.name)}</h2>
         ${startup.sector && startup.sector !== "Mapped startup" ? `<p class="detail-card__sector">${escapeHtml(startup.sector)}</p>` : ""}
       </div>
     </div>
     <p class="detail-card__blurb">${escapeHtml(blurb)}</p>
-    <div class="detail-card__facts">
-      <div class="detail-fact">
-        <span class="detail-fact__icon" aria-hidden="true">📍</span>
-        <span>${escapeHtml(loc)}</span>
-      </div>
+    ${meta ? `<p class="detail-card__meta">${escapeHtml(meta)}</p>` : ""}
+    ${facts ? `<p class="detail-card__meta">${escapeHtml(facts)}</p>` : ""}
+    <div class="detail-card__actions">
+      ${url ? `<a class="detail-card__link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(host || "Visit website")} ↗</a>` : ""}
+      <a class="detail-card__ghost" href="${escapeHtml(jobsUrl)}" target="_blank" rel="noreferrer">Jobs ↗</a>
+      <button class="detail-card__ghost" type="button" data-copy>Copy link</button>
     </div>
-    ${
-      tags.length
-        ? `<div class="detail-card__meta">${tags
-            .map((item) => `<span class="detail-chip">${escapeHtml(item)}</span>`)
-            .join("")}</div>`
-        : ""
-    }
-    ${
-      url
-        ? `<div class="detail-card__actions">
-      <a class="detail-card__link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Visit ${escapeHtml(host || "website")} ↗</a>
-    </div>`
-        : ""
-    }
   `;
   const closeBtn = detailCard.querySelector(".detail-card__close");
   if (closeBtn) closeBtn.addEventListener("click", () => clearSelection());
+  const copyBtn = detailCard.querySelector("[data-copy]");
+  if (copyBtn)
+    copyBtn.addEventListener("click", async () => {
+      copyBtn.textContent = (await copyText(shareUrl(`#/company/${startup.id}`))) ? "Copied" : "Copy failed";
+      setTimeout(() => {
+        copyBtn.textContent = "Copy link";
+      }, 1400);
+    });
+}
+
+// Clipboard API first, hidden-textarea execCommand as the fallback.
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    ta.remove();
+    return ok;
+  }
 }
 
 function clearSelection() {
   state.selectedId = null;
+  releaseFocus();
   const area = AREA_BY_ID[state.activeAreaId] || AREA_BY_ID.all;
   renderAreaDetail(area);
   updateUiState();
+  writeHash(area.id === "all" ? "#/" : `#/area/${area.id}`);
+  document.title = area.id === "all" ? BASE_TITLE : `${area.label} · ${BASE_TITLE}`;
 }
 
 function cameraDestination(focus) {
@@ -1953,16 +2550,32 @@ function cameraDestination(focus) {
   return { target, position };
 }
 
-function flyTo(focus) {
+function flyTo(focus, { cinematic = false } = {}) {
   const destination = cameraDestination(focus);
-  state.flight = {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const flight = {
     startTime: performance.now(),
-    duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 120 : 1300,
+    duration: reduced ? 120 : cinematic ? 1900 : 1300,
     fromPos: camera.position.clone(),
     fromTarget: controls.target.clone(),
     toPos: destination.position,
     toTarget: destination.target,
   };
+
+  // Startup selections dolly along a lift -> arc -> settle curve instead of a
+  // straight lerp, so flying across the city reads like a camera move.
+  if (cinematic && !reduced) {
+    const from = flight.fromPos.clone();
+    const to = flight.toPos.clone();
+    const dist = from.distanceTo(to);
+    const lift = Math.min(30, 8 + dist * 0.34);
+    const mid1 = from.clone().lerp(to, 0.28);
+    mid1.y = Math.max(from.y, to.y) + lift;
+    const mid2 = from.clone().lerp(to, 0.8);
+    mid2.y = to.y + lift * 0.42;
+    flight.path = new THREE.CatmullRomCurve3([from, mid1, mid2, to], false, "centripetal");
+  }
+  state.flight = flight;
 }
 
 function updateFlight() {
@@ -1970,50 +2583,64 @@ function updateFlight() {
   const elapsed = performance.now() - state.flight.startTime;
   const raw = Math.min(1, elapsed / state.flight.duration);
   const t = 1 - Math.pow(1 - raw, 3);
-  camera.position.lerpVectors(state.flight.fromPos, state.flight.toPos, t);
+  if (state.flight.path) camera.position.copy(state.flight.path.getPointAt(t));
+  else camera.position.lerpVectors(state.flight.fromPos, state.flight.toPos, t);
   controls.target.lerpVectors(state.flight.fromTarget, state.flight.toTarget, t);
   if (raw >= 1) state.flight = null;
 }
 
 function updateMarkerScale(time) {
   const activeItems = new Set(areaItems(state.activeAreaId).map((item) => item.id));
+  const hasSelection = Boolean(state.selectedId);
   startupMarkers.forEach(({ group, halo, item }) => {
     const active = state.activeAreaId === "all" || activeItems.has(item.id);
     const selected = state.selectedId === item.id;
     const pulse = 1 + Math.sin(time * 3.2 + item.lat) * 0.04;
-    const scale = selected ? 1.24 * pulse : active ? 0.92 : 0.58;
+    const scale = selected ? 1.24 * pulse : active ? (hasSelection ? 0.8 : 0.92) : 0.58;
     group.scale.setScalar(scale);
+    // With a company in focus, every other pin steps back into the haze.
+    const targetOpacity = selected ? 1 : active ? (hasSelection ? 0.45 : 1) : hasSelection ? 0.18 : 0.32;
     group.children.forEach((child) => {
       if (child.userData.hitArea) {
         child.material.opacity = 0;
         return;
       }
       if (child.material?.opacity !== undefined) {
-        child.material.transparent = !active;
-        child.material.opacity = active ? 1 : 0.32;
+        child.material.transparent = targetOpacity < 1;
+        child.material.opacity = targetOpacity;
       }
     });
     halo.rotation.z += 0.01;
   });
 }
 
-function onPointerMove(event) {
+function pickMarker(event) {
   pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(markerMeshes, false);
-  const item = hits[0]?.object?.userData?.item;
-  hoverCandidate = item || null;
-  canvas.style.cursor = item ? "pointer" : "grab";
+  return hits[0]?.object?.userData?.item || null;
+}
+
+function onPointerMove(event) {
+  hoverCandidate = pickMarker(event);
+  canvas.style.cursor = hoverCandidate ? "pointer" : "grab";
 }
 
 function onPointerDown(event) {
-  pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
-  pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(markerMeshes, false);
-  const item = hits[0]?.object?.userData?.item || hoverCandidate;
+  pointerDown = { x: event.clientX, y: event.clientY, item: pickMarker(event) };
+}
+
+// Selection happens on release so an orbit drag never triggers it. A click on
+// a marker selects it; a click on empty map clears the current selection.
+function onPointerUp(event) {
+  if (!pointerDown) return;
+  const moved = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
+  const item = pointerDown.item;
+  pointerDown = null;
+  if (moved > 6) return; // a drag, not a click
   if (item) selectStartup(item.id);
+  else if (state.selectedId) clearSelection();
 }
 
 function renderSearchResults(query) {
@@ -2038,7 +2665,7 @@ function renderSearchResults(query) {
   }
 
   if (!results.length) {
-    searchResults.innerHTML = `<div class="search-result" aria-disabled="true"><span class="search-result__body"><strong>No matches</strong><span>Try a company name, sector, stage, or neighborhood.</span></span></div>`;
+    searchResults.innerHTML = `<div class="search-result" aria-disabled="true"><span class="search-result__body"><strong>No matches</strong><span>Try a company name, sector, stage, or neighborhood.</span></span></div><a class="search-results__cta" href="https://github.com/Nutlope/interactive-3d-map/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer noopener">Know a startup that belongs here? Add it to the atlas ↗</a>`;
     return;
   }
 
@@ -2094,6 +2721,10 @@ function bindEvents() {
 
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", () => {
+    pointerDown = null;
+  });
 
   searchTrigger.addEventListener("click", openSearch);
 
@@ -2152,22 +2783,29 @@ function bindEvents() {
     }
   });
 
-  const brand = document.querySelector(".brand-mark");
+  const brand = document.querySelector(".brand");
   if (brand)
     brand.addEventListener("click", (event) => {
       event.preventDefault();
       setActiveArea("all");
     });
 
-  const mobileGate = document.querySelector("#mobileGate");
-  const mobileGateContinue = document.querySelector("#mobileGateContinue");
-  if (mobileGateContinue && mobileGate)
-    mobileGateContinue.addEventListener("click", () => mobileGate.classList.add("is-dismissed"));
+  // Browser back/forward re-applies the hash route.
+  window.addEventListener("hashchange", () => {
+    if (suppressHashEvent) {
+      suppressHashEvent = false;
+      return;
+    }
+    applyHashFromLocation();
+  });
 
-  labelToggle.addEventListener("click", () => {
-    state.labelsMode = state.labelsMode === "all" ? "key" : "all";
+  labelToggle.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-mode]");
+    if (!button) return;
+    state.labelsMode = button.dataset.mode;
     updateUiState();
   });
+
 }
 
 function animate() {
@@ -2178,7 +2816,9 @@ function animate() {
   updateVehicles(delta);
   updateTransit(delta);
   updateClouds(delta);
+  updateBirds(elapsed);
   updateMarkerScale(elapsed);
+  updateFocusFx(elapsed, delta);
   controls.update();
   renderer.render(scene, camera);
   updateLabels();
@@ -2188,27 +2828,32 @@ function animate() {
 function init() {
   createLights();
   createBaseMap();
+  createStreetTrees();
   buildTrees();
   const roadPaths = createRoadsAndRails();
   createSubwayLayer();
   createBuildings();
   createLandmarks();
-  createHaze();
   createMarkers();
   createVehicles(roadPaths);
   createFerries();
   createPlanes();
   createClouds();
+  createBirds();
   createLabels();
   renderAreaList();
-  renderProgressRail();
   renderMiniMap();
+  renderPinLegend();
   bindEvents();
+  // Label sizes are cached for the declutter pass; re-measure once the pixel font lands.
+  if (document.fonts?.ready) document.fonts.ready.then(() => labelDims.clear());
   const initial = cameraDestination(AREA_BY_ID.all.focus);
   camera.position.copy(initial.position);
   controls.target.copy(initial.target);
   renderAreaDetail(AREA_BY_ID.all);
   updateUiState();
+  // Deep links: land directly on a shared company or area.
+  if (location.hash && location.hash !== "#/") applyHashFromLocation();
   animate();
 }
 

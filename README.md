@@ -13,6 +13,17 @@ The app was inspired by the interaction model of Levels.fyi Atlas: a left-side c
 - NYC context layers: Big Tech offices, VCs/events, coworking, universities, subway lines, parks, bridges, ferries, planes, cars, landmark buildings, and a mini map.
 - A richer Central Park layer with water bodies, lawns, paths, and trees.
 
+## Add Your Startup
+
+Know an AI startup with a real NYC office that belongs on the map? Open a pull request. Everything about a company is one entry in [src/data.js](src/data.js) plus a one-line blurb, so it is a small, self-contained change. [CONTRIBUTING.md](CONTRIBUTING.md) walks through it.
+
+Two easy ways to do it:
+
+- **Ask an AI coding agent.** Clone the repo and tell your agent (Claude Code, Cursor, etc.) "add \<company\> to the atlas and open a PR." [AGENTS.md](AGENTS.md) has a deterministic recipe it can follow.
+- **By hand.** Add the entry, run `npm run logos`, verify with `npm run dev`, and open the PR.
+
+There is also an "Add your startup" button in the app, and the same link appears when a search finds no matches.
+
 ## Data Sources
 
 Startup data is stored in [src/data.js](src/data.js). The source links are:
@@ -35,6 +46,7 @@ Important caveat: most addresses are reverse-geocoded from map-pin coordinates. 
 - Three.js
 - Vanilla JavaScript modules
 - CSS custom properties and plain CSS
+- Geist (single self-hosted variable UI font, SIL OFL)
 
 There is no React app or backend service. The scene is built in [src/main.js](src/main.js), geography lives in [src/geo.js](src/geo.js), data lives in [src/data.js](src/data.js), and UI styling lives in [src/styles.css](src/styles.css).
 
@@ -88,6 +100,7 @@ npm run addresses
 ├── public/
 │   ├── company-addresses.csv
 │   ├── company-addresses.md
+│   ├── fonts/
 │   ├── logos/
 │   └── og.png
 ├── scripts/

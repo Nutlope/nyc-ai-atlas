@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Favicon: the atlas map-pin on a solid cobalt tile so it stays legible
+       at 16px on any tab background. Same mark as the nav logo. -->
+  <rect width="32" height="32" rx="7" fill="#2664ff" />
+  <path
+    fill="#ffffff"
+    fill-rule="evenodd"
+    d="M16 27.5 C12.6 22.2 8.5 16.8 8.5 12 A7.5 7.5 0 1 1 23.5 12 C23.5 16.8 19.4 22.2 16 27.5 Z M16 9.1 A2.9 2.9 0 1 0 16 14.9 A2.9 2.9 0 1 0 16 9.1 Z"
+  />
+</svg>

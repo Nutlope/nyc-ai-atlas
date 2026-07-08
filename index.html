@@ -7,33 +7,30 @@
       name="description"
       content="A high-fidelity 3D interactive map of New York City's AI startups, neighborhood by neighborhood."
     />
-    <title>NYC AI Atlas — A 3D map of New York's AI startups</title>
+    <title>NYC AI Atlas: A 3D map of New York's AI startups</title>
 
     <!-- Open Graph / social cards -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="NYC AI Atlas" />
-    <meta property="og:title" content="NYC AI Atlas — A 3D map of New York's AI startups" />
+    <meta property="og:title" content="NYC AI Atlas: A 3D map of New York's AI startups" />
     <meta
       property="og:description"
       content="An interactive 3D map of every AI startup in New York City, explored block by block across 8 neighborhoods."
     />
-    <meta property="og:image" content="./og.png" />
+    <meta property="og:image" content="./og.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="2400" />
     <meta property="og:image:height" content="1260" />
     <meta property="og:image:alt" content="3D map of New York City showing AI startups across Manhattan and Brooklyn" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="NYC AI Atlas — A 3D map of New York's AI startups" />
+    <meta name="twitter:title" content="NYC AI Atlas: A 3D map of New York's AI startups" />
     <meta
       name="twitter:description"
       content="An interactive 3D map of every AI startup in New York City, explored block by block."
     />
-    <meta name="twitter:image" content="./og.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <meta name="twitter:image" content="./og.jpg" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="preload" href="./fonts/GeistVF.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="./tokens.css" />
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
@@ -42,42 +39,64 @@
       <canvas id="scene" aria-label="3D interactive map of NYC AI startups"></canvas>
       <div id="labelsLayer" class="labels-layer" aria-hidden="false"></div>
 
-      <header class="topbar" aria-label="NYC AI Atlas controls">
-        <a class="brand-mark" href="#" aria-label="NYC AI Atlas home">
-          <span class="brand-mark__glyph" aria-hidden="true"></span>
-          <span class="brand-mark__text">NYC AI Atlas</span>
-        </a>
-        <button id="searchTrigger" class="search-trigger" type="button" aria-haspopup="dialog" aria-label="Search companies">
-          <svg class="search-trigger__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <span class="search-trigger__label">Search startups…</span>
-          <span class="search-trigger__keys"><kbd>⌘</kbd><kbd>K</kbd></span>
-        </button>
-        <div class="topbar__meta" aria-label="Map summary">
-          <span class="topbar__stat"><strong>45</strong> AI startups</span>
-          <span class="topbar__stat"><strong>8</strong> neighborhoods</span>
-        </div>
-      </header>
+      <div class="hud-left">
+        <aside class="rail" aria-label="NYC AI Atlas navigation">
+          <a class="brand" href="#" aria-label="NYC AI Atlas home">
+            <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
+              <!-- Map pin: the atlas mark. Balanced teardrop with a round
+                   aperture, drawn upright so it reads at any size. -->
+              <path
+                fill="currentColor"
+                fill-rule="evenodd"
+                d="M16 29.5 C12.2 23.5 7.5 17.5 7.5 12 A8.5 8.5 0 1 1 24.5 12 C24.5 17.5 19.8 23.5 16 29.5 Z M16 8.8 A3.2 3.2 0 1 0 16 15.2 A3.2 3.2 0 1 0 16 8.8 Z"
+              />
+            </svg>
+            <span class="brand__text">
+              <h1>NYC AI Atlas</h1>
+              <span class="brand__sub">45 startups · 8 neighborhoods</span>
+            </span>
+          </a>
 
-      <aside class="legend-panel" aria-label="Neighborhood chapters">
-        <div class="panel-heading">
-          <span class="panel-heading__spark" aria-hidden="true"></span>
-          <div>
-            <p>New York City</p>
-            <h1>AI startup map</h1>
+          <nav id="areaList" class="area-list" aria-label="Explore by area"></nav>
+
+          <div class="rail__foot">
+            <div class="mode-row">
+              <span class="mode-row__label">Pins</span>
+              <div id="labelToggle" class="segmented" role="group" aria-label="Company label density">
+                <button type="button" data-mode="key">Curated</button>
+                <button type="button" data-mode="all">All</button>
+              </div>
+            </div>
+            <div id="pinLegend" class="pin-legend"></div>
+            <a
+              class="rail__cta"
+              href="https://github.com/Nutlope/interactive-3d-map/blob/main/CONTRIBUTING.md"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 2.5c.41 0 .75.34.75.75v4h4a.75.75 0 0 1 0 1.5h-4v4a.75.75 0 0 1-1.5 0v-4h-4a.75.75 0 0 1 0-1.5h4v-4c0-.41.34-.75.75-.75Z"/></svg>
+              Add your startup
+            </a>
+            <p class="rail__hint"><kbd>↑</kbd><kbd>↓</kbd> areas · <kbd>⌘K</kbd> search · click a pin</p>
+            <p class="rail__credit">
+              Data: <a href="https://airtable.com/appK49oThZBOTSYlX/shr5Chudz00G5jxwW/tblFlqQHeAvsVxLNI" target="_blank" rel="noreferrer">Lux NYC AI database</a> · June 2026
+            </p>
           </div>
-        </div>
-        <nav id="areaList" class="area-list" aria-label="Explore by area"></nav>
-      </aside>
+        </aside>
 
-      <section id="detailCard" class="detail-card" aria-live="polite"></section>
-
-      <div class="control-stack" aria-label="Map display controls">
-        <button id="labelToggle" class="control-btn" type="button">
-          <span>Companies</span><strong>All</strong><span>/ Curated</span>
-        </button>
+        <section id="detailCard" class="detail-card is-hidden" aria-live="polite"></section>
       </div>
 
-      <nav id="progressRail" class="progress-rail" aria-label="Neighborhood navigation"></nav>
+      <div class="hud-top-right">
+        <button id="searchTrigger" class="search-trigger" type="button" aria-haspopup="dialog" aria-label="Search companies">
+          <svg class="search-trigger__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span class="search-trigger__label">Search</span>
+          <kbd>⌘K</kbd>
+        </button>
+        <a class="icon-btn" href="https://github.com/Nutlope/interactive-3d-map" target="_blank" rel="noreferrer noopener" aria-label="View source on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5C5.37.5 0 5.78 0 12.29c0 5.2 3.44 9.6 8.21 11.16.6.11.82-.25.82-.56 0-.28-.01-1.02-.02-2-3.34.7-4.04-1.58-4.04-1.58-.55-1.36-1.33-1.73-1.33-1.73-1.09-.73.08-.71.08-.71 1.2.08 1.83 1.21 1.83 1.21 1.07 1.8 2.81 1.28 3.5.98.11-.76.42-1.28.76-1.57-2.67-.3-5.47-1.3-5.47-5.79 0-1.28.47-2.33 1.23-3.15-.12-.29-.53-1.49.12-3.11 0 0 1-.31 3.3 1.2.96-.26 1.98-.39 3-.4 1.02.01 2.04.14 3 .4 2.28-1.51 3.29-1.2 3.29-1.2.65 1.62.24 2.82.12 3.11.77.82 1.23 1.87 1.23 3.15 0 4.5-2.81 5.48-5.49 5.77.43.36.81 1.09.81 2.2 0 1.59-.01 2.87-.01 3.26 0 .31.21.68.83.56C20.57 21.88 24 17.48 24 12.29 24 5.78 18.63.5 12 .5Z"/></svg>
+        </a>
+      </div>
 
       <aside class="mini-map" aria-label="Mini map">
         <svg id="miniMapSvg" viewBox="0 0 120 160" role="img" aria-label="Simplified NYC outline and active area">
@@ -88,21 +107,9 @@
           <path class="mini-map__brooklyn" d="M76 92 L110 104 L104 150 L66 148 L84 120 Z" />
           <g id="miniMapPoints"></g>
         </svg>
-        <p>N ↑ · NYC</p>
+        <p>NYC</p>
       </aside>
 
-      <footer class="source-line">
-        <span>45 AI startups across NYC · Company data from the <a href="https://airtable.com/appK49oThZBOTSYlX/shr5Chudz00G5jxwW/tblFlqQHeAvsVxLNI" target="_blank" rel="noreferrer">Lux NYC AI database</a> · Updated June 2026</span>
-      </footer>
-
-      <div id="mobileGate" class="mobile-gate" role="dialog" aria-modal="true" aria-labelledby="mobileGateTitle">
-        <div class="mobile-gate__card">
-          <span class="mobile-gate__glyph" aria-hidden="true">🖥️</span>
-          <h2 id="mobileGateTitle">Best explored on a desktop</h2>
-          <p>The NYC AI Atlas is an interactive 3D map built for a bigger screen and a mouse or trackpad. Open it on a laptop or desktop for the full experience.</p>
-          <button id="mobileGateContinue" class="mobile-gate__continue" type="button">Continue anyway</button>
-        </div>
-      </div>
     </div>
 
     <dialog id="searchModal" class="search-modal" aria-label="Search AI startups">
