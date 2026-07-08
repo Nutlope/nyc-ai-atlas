@@ -170,7 +170,7 @@ const groundTexture = makeGroundTexture();
 
 const materials = {
   water: new THREE.MeshStandardMaterial({
-    color: 0x2e6d92,
+    color: 0x2a6488,
     roughness: 0.4,
     metalness: 0.18,
   }),
@@ -178,6 +178,14 @@ const materials = {
     color: colors.land,
     map: groundTexture,
     roughness: 0.82,
+    side: THREE.DoubleSide,
+  }),
+  // Manhattan's ground plane IS the street surface; blocks sit on it as
+  // raised sidewalk plates, so streets need no line meshes at all.
+  asphalt: new THREE.MeshStandardMaterial({
+    color: 0x7a7e85,
+    map: groundTexture,
+    roughness: 0.96,
     side: THREE.DoubleSide,
   }),
   landAlt: new THREE.MeshStandardMaterial({
@@ -400,7 +408,7 @@ function makeCurveTube(points, radius, material, segments = 48) {
 }
 
 function createLights() {
-  const hemi = new THREE.HemisphereLight(0xdbefff, 0x4a4335, 2.55);
+  const hemi = new THREE.HemisphereLight(0xdbefff, 0x4a4335, 2.75);
   scene.add(hemi);
 
   const sun = new THREE.DirectionalLight(0xffedc9, 3.45);
@@ -743,7 +751,7 @@ function createBaseMap() {
   scene.add(water);
   waterSurfaces.push(water);
 
-  makeShape(MANHATTAN, materials.land, 0, true);
+  makeShape(MANHATTAN, materials.asphalt, 0, true);
   createShoreline(MANHATTAN);
 
   makeShape(BROOKLYN_QUEENS, materials.landAlt, 0, true);
@@ -780,73 +788,8 @@ const GRID = (() => {
   return { av, st, origin };
 })();
 
-function gridSegments(lines, instanceWidth, material, y) {
-  const segs = [];
-  for (const pts of lines) {
-    for (let i = 0; i < pts.length - 1; i += 1) {
-      const a = pts[i];
-      const b = pts[i + 1];
-      const midLat = (a[0] + b[0]) / 2;
-      const midLng = (a[1] + b[1]) / 2;
-      if (!pointInPoly(midLat, midLng, MANHATTAN)) continue;
-      if (pointInPoly(midLat, midLng, CENTRAL_PARK)) continue;
-      segs.push([a, b]);
-    }
-  }
-  if (!segs.length) return;
-  const geo = new THREE.BoxGeometry(1, 0.04, 1);
-  const mesh = new THREE.InstancedMesh(geo, material, segs.length);
-  mesh.receiveShadow = true;
-  const matrix = new THREE.Matrix4();
-  const quat = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  const pos = new THREE.Vector3();
-  segs.forEach((seg, idx) => {
-    const pa = project(seg[0][0], seg[0][1]);
-    const pb = project(seg[1][0], seg[1][1]);
-    const dx = pb.x - pa.x;
-    const dz = pb.z - pa.z;
-    const len = Math.hypot(dx, dz) + instanceWidth;
-    const angle = Math.atan2(dx, dz);
-    pos.set((pa.x + pb.x) / 2, y, (pa.z + pb.z) / 2);
-    quat.setFromAxisAngle(UP, angle);
-    scale.set(instanceWidth, 1, len);
-    matrix.compose(pos, quat, scale);
-    mesh.setMatrixAt(idx, matrix);
-  });
-  scene.add(mesh);
-}
 
-function gridLine(centerStepAv, centerStepSt, alongAv, halfLen, count) {
-  const { av, st, origin } = GRID;
-  const cLat = origin.lat + centerStepAv * av.dlat + centerStepSt * st.dlat;
-  const cLng = origin.lng + centerStepAv * av.dlng + centerStepSt * st.dlng;
-  const dir = alongAv ? av : st;
-  const pts = [];
-  for (let s = 0; s <= count; s += 1) {
-    const t = -halfLen + (s / count) * (halfLen * 2);
-    pts.push([cLat + t * dir.dlat, cLng + t * dir.dlng]);
-  }
-  return pts;
-}
 
-function createStreetGrid() {
-  const { av, st } = GRID;
-  void av;
-  void st;
-  // Avenues: long lines along the island axis, spaced crosstown.
-  const avenues = [];
-  for (let j = -7; j <= 7; j += 1) {
-    avenues.push(gridLine(0, j * 0.0026, true, 0.075, 90));
-  }
-  // Cross streets: spaced uptown, shorter spans.
-  const streets = [];
-  for (let i = -48; i <= 96; i += 1) {
-    streets.push(gridLine(i * 0.00094, 0, false, 0.028, 36));
-  }
-  gridSegments(streets, 0.036, materials.street, 0.03);
-  gridSegments(avenues, 0.085, materials.road, 0.032);
-}
 
 function createBridgeDetails() {
   const deckHeight = 0.62;
@@ -1139,8 +1082,11 @@ function createRoadsAndRails() {
 
   // Hidden smooth paths that the traffic drives along (the visible grid is
   // rendered separately). Kept invisible so cars appear to follow streets.
-  const roadPaths = roadRoutes.map((route) => makeTube(route, 0.042, materials.road, 0.05, 80));
-  createStreetGrid();
+  const roadPaths = roadRoutes.map((route) => {
+    const tube = makeTube(route, 0.042, materials.road, 0.05, 80);
+    tube.mesh.visible = false; // traffic guide only; the asphalt ground is the road
+    return tube;
+  });
   createBridgeDetails();
 
   return roadPaths;
@@ -1202,6 +1148,7 @@ function createBuildings() {
   const gridRot = Math.atan2(uVec.x, uVec.z); // building depth spans street-to-street
 
   const filledCells = new Set();
+  const blockPlates = []; // one raised sidewalk plate per city block
   DISTRICTS.filter((district) => !district.faded).forEach((district) => {
     const [latMin, latMax, lngMin, lngMax] = district.bbox;
     for (let i = -52; i <= 98; i += 1) {
@@ -1216,6 +1163,7 @@ function createBuildings() {
         if (!buildingAllowed(lat, lng)) continue;
         filledCells.add(key);
         const center = project(lat, lng);
+        blockPlates.push({ x: center.x, z: center.z });
         // 2-3 lots along the long side of each block; a few stay vacant.
         const lots = random() < 0.3 ? 3 : 2;
         for (let slot = 0; slot < lots; slot += 1) {
@@ -1485,6 +1433,29 @@ function createBuildings() {
   scene.add(windowMesh);
   storefrontMesh.count = storefrontCount;
   scene.add(storefrontMesh);
+
+  // Sidewalk plates: the city blocks themselves, floated just above the
+  // asphalt ground so the streets are the gaps between them. Avenue gaps run
+  // wider than cross-street gaps, like the real grid.
+  if (blockPlates.length) {
+    const plateMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1, 0.06, 1),
+      new THREE.MeshStandardMaterial({ color: 0xd7d3c7, roughness: 0.9 }),
+      blockPlates.length,
+    );
+    plateMesh.receiveShadow = true;
+    const plateColor = new THREE.Color();
+    blockPlates.forEach((plate, i) => {
+      pos.set(plate.x, 0, plate.z);
+      quat.setFromAxisAngle(UP, gridRot);
+      scale.set(vLen - 0.26, 1, uLen - 0.12);
+      matrix.compose(pos, quat, scale);
+      plateMesh.setMatrixAt(i, matrix);
+      plateColor.setHSL(0.09, 0.06, 0.8 + ((i * 2654435761) % 100) / 100 * 0.05);
+      plateMesh.setColorAt(i, plateColor);
+    });
+    scene.add(plateMesh);
+  }
 
   if (tiers.length) {
     const tierMesh = new THREE.InstancedMesh(geometry, buildingMaterial, tiers.length);
