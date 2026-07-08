@@ -19,8 +19,8 @@ This repo is a Vite + Three.js single-page app for the NYC AI Atlas. Use this fi
 - `src/geo.js`: hand-authored NYC polygons, parks, districts, subway paths, landmarks, and bridges.
 - `src/data.js`: data sources, area chapters, startup records, company blurbs, and context points.
 - `src/styles.css`: pixel-glass HUD styling: rail, labels, search modal, company card, and the touch bottom-sheet layout (no mobile gate; phones get a working map with a lighter GPU budget).
-- `tokens.css`: shared CSS variables (Geist Pixel single-font setup, 4-step type scale, glass tokens).
-- `public/fonts`: self-hosted Geist Pixel Square woff2 + OFL license.
+- `tokens.css`: shared CSS variables (Geist single-font setup, 4-step type scale, glass tokens).
+- `public/fonts`: self-hosted Geist variable woff2 + OFL license.
 - `public/logos`: startup SVG logos, keyed by startup `id`.
 - `public/company-addresses.*`: generated address reports.
 - `scripts/fetch-logos.mjs`: regenerates logo SVGs from Simple Icons, company websites, favicon discovery, and direct asset overrides.

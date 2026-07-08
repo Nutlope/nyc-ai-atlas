@@ -841,7 +841,7 @@ function createStreetGrid() {
   }
   // Cross streets: spaced uptown, shorter spans.
   const streets = [];
-  for (let i = -48; i <= 60; i += 1) {
+  for (let i = -48; i <= 96; i += 1) {
     streets.push(gridLine(i * 0.00094, 0, false, 0.028, 36));
   }
   gridSegments(streets, 0.036, materials.street, 0.03);
@@ -926,39 +926,50 @@ function createSubwayTrainMesh(color = 0x169b62) {
 }
 
 function createSubwayLayer() {
+  // MTA-diagram styling: white station discs with a dark rim over the
+  // colored route lines.
   const stationMaterial = new THREE.MeshStandardMaterial({
     color: 0xf6f7f4,
     roughness: 0.4,
     emissive: new THREE.Color(0x1a1a1a),
   });
-  const stationGeo = new THREE.CylinderGeometry(0.085, 0.085, 0.04, 16);
+  const stationRimMaterial = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.6 });
+  const stationGeo = new THREE.CylinderGeometry(0.095, 0.095, 0.05, 16);
+  const stationRimGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.036, 16);
 
   SUBWAY_LINES.forEach((line, lineIndex) => {
     const lineMaterial = new THREE.MeshStandardMaterial({
       color: line.color,
       roughness: 0.45,
-      emissive: new THREE.Color(line.color).multiplyScalar(0.18),
+      emissive: new THREE.Color(line.color).multiplyScalar(0.3),
     });
-    const y = 0.045 + lineIndex * 0.008; // tiny stagger so overlapping lines don't z-fight
-    const { points } = makeTube(line.stops, 0.022, lineMaterial, y, line.stops.length * 12);
+    const y = 0.05 + lineIndex * 0.007; // tiny stagger so overlapping lines don't z-fight
+    const { points } = makeTube(line.stops, 0.04, lineMaterial, y, line.stops.length * 12);
 
     line.stops.forEach(([lat, lng]) => {
-      const p = project(lat, lng, y + 0.04);
+      const p = project(lat, lng, y + 0.035);
+      const rim = new THREE.Mesh(stationRimGeo, stationRimMaterial);
+      rim.position.copy(p);
+      scene.add(rim);
       const disk = new THREE.Mesh(stationGeo, stationMaterial);
       disk.position.copy(p);
+      disk.position.y += 0.02;
       scene.add(disk);
     });
 
-    // One train per line
-    const train = createSubwayTrainMesh(line.color);
-    scene.add(train);
-    subwayFleet.push({
-      mesh: train,
-      path: points,
-      t: lineIndex * 0.27,
-      speed: 0.016 + lineIndex * 0.002,
-      y: y + 0.14,
-    });
+    // One train per line; the long trunk lines run a second.
+    const trainCount = line.stops.length >= 10 ? 2 : 1;
+    for (let i = 0; i < trainCount; i += 1) {
+      const train = createSubwayTrainMesh(line.color);
+      scene.add(train);
+      subwayFleet.push({
+        mesh: train,
+        path: points,
+        t: lineIndex * 0.27 + i * 0.5,
+        speed: 0.016 + lineIndex * 0.002,
+        y: y + 0.14,
+      });
+    }
   });
 
   addLandmarkLabel("Grand Central", 40.7527, -73.9772, 2.7);
@@ -1193,7 +1204,7 @@ function createBuildings() {
   const filledCells = new Set();
   DISTRICTS.filter((district) => !district.faded).forEach((district) => {
     const [latMin, latMax, lngMin, lngMax] = district.bbox;
-    for (let i = -52; i <= 64; i += 1) {
+    for (let i = -52; i <= 98; i += 1) {
       for (let j = -8; j <= 8; j += 1) {
         const u = (i + 0.5) * CELL_U;
         const v = (j + 0.5) * CELL_V;
@@ -1341,10 +1352,19 @@ function createBuildings() {
   roofMesh.receiveShadow = true;
   let roofCount = 0;
 
-  const windowMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), materials.window, instances.length * 8);
+  const windowMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), materials.window, instances.length * 22);
   windowMesh.castShadow = false;
   windowMesh.receiveShadow = true;
   let windowCount = 0;
+
+  const storefrontMesh = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshStandardMaterial({ color: 0x2e343c, roughness: 0.35, metalness: 0.08 }),
+    instances.length,
+  );
+  storefrontMesh.castShadow = false;
+  storefrontMesh.receiveShadow = true;
+  let storefrontCount = 0;
 
   // Rooftop detail collected during the main pass, instanced afterwards:
   // wedding-cake setback tiers, wooden water tanks, and AC units.
@@ -1412,10 +1432,13 @@ function createBuildings() {
       }
     }
 
+    const front = new THREE.Vector3(Math.sin(box.rot), 0, Math.cos(box.rot));
+    const side = new THREE.Vector3(Math.cos(box.rot), 0, -Math.sin(box.rot));
+
     if (box.h > 1.7) {
-      const floors = Math.min(4, Math.floor(box.h / 1.2));
-      const front = new THREE.Vector3(Math.sin(box.rot), 0, Math.cos(box.rot));
-      const side = new THREE.Vector3(Math.cos(box.rot), 0, -Math.sin(box.rot));
+      const floors = Math.min(5, Math.floor(box.h / 1.05));
+      // Taller buildings get bands on all four faces; mid-rises on two.
+      const allFaces = box.h > 2.2;
       for (let floor = 1; floor <= floors; floor += 1) {
         const y = Math.min(box.h - 0.35, floor * (box.h / (floors + 1)));
         pos.set(box.x, y, box.z).addScaledVector(front, box.d / 2 + 0.018);
@@ -1429,7 +1452,30 @@ function createBuildings() {
         matrix.compose(pos, quat, scale);
         windowMesh.setMatrixAt(windowCount, matrix);
         windowCount += 1;
+
+        if (allFaces) {
+          pos.set(box.x, y + 0.05, box.z).addScaledVector(front, -(box.d / 2 + 0.018));
+          scale.set(box.w * 0.72, 0.035, 0.02);
+          matrix.compose(pos, quat, scale);
+          windowMesh.setMatrixAt(windowCount, matrix);
+          windowCount += 1;
+
+          pos.set(box.x, y + 0.15, box.z).addScaledVector(side, -(box.w / 2 + 0.018));
+          scale.set(0.02, 0.035, box.d * 0.7);
+          matrix.compose(pos, quat, scale);
+          windowMesh.setMatrixAt(windowCount, matrix);
+          windowCount += 1;
+        }
       }
+    }
+
+    // Street-level storefront glazing on the avenue-facing side.
+    if (box.h > 0.55 && box.shade > 0.25) {
+      pos.set(box.x, 0.13, box.z).addScaledVector(front, box.d / 2 + 0.012);
+      scale.set(box.w * 0.78, 0.22, 0.02);
+      matrix.compose(pos, quat, scale);
+      storefrontMesh.setMatrixAt(storefrontCount, matrix);
+      storefrontCount += 1;
     }
   });
   scene.add(mesh);
@@ -1437,6 +1483,8 @@ function createBuildings() {
   scene.add(roofMesh);
   windowMesh.count = windowCount;
   scene.add(windowMesh);
+  storefrontMesh.count = storefrontCount;
+  scene.add(storefrontMesh);
 
   if (tiers.length) {
     const tierMesh = new THREE.InstancedMesh(geometry, buildingMaterial, tiers.length);
@@ -2392,6 +2440,8 @@ function setActiveArea(areaId, { keepSelection = false } = {}) {
 function selectStartup(id) {
   const startup = STARTUPS.find((item) => item.id === id);
   if (!startup) return;
+  dismissOnboarding();
+  detailCard.classList.remove("is-onboard");
   state.selectedId = id;
   state.activeAreaId = startup.area;
   flyTo({ lat: startup.lat, lng: startup.lng, distance: 18, height: 16, rotation: 0.72 }, { cinematic: true });
@@ -2402,9 +2452,48 @@ function selectStartup(id) {
   document.title = `${startup.name} · ${BASE_TITLE}`;
 }
 
+const ONBOARD_KEY = "atlas-onboarded";
+
+function onboardDismissed() {
+  try {
+    return Boolean(localStorage.getItem(ONBOARD_KEY));
+  } catch {
+    return false;
+  }
+}
+
+function dismissOnboarding() {
+  try {
+    localStorage.setItem(ONBOARD_KEY, "1");
+  } catch {
+    /* private mode: the card simply returns next visit */
+  }
+}
+
 function renderAreaDetail() {
-  // Area context lives inline in the rail now; the floating card is for companies only.
-  detailCard.classList.add("is-hidden");
+  // Until dismissed, the floating card slot hosts a compact explore guide;
+  // after that it stays reserved for company details.
+  if (state.selectedId || onboardDismissed()) {
+    detailCard.classList.add("is-hidden");
+    detailCard.classList.remove("is-onboard");
+    return;
+  }
+  detailCard.classList.add("is-onboard");
+  detailCard.classList.remove("is-hidden");
+  detailCard.innerHTML = `
+    <p class="onboard-title">How to explore</p>
+    <ul class="onboard">
+      <li><span class="onboard__keys"><kbd>↑</kbd><kbd>↓</kbd></span><span>Step through the neighborhoods</span></li>
+      <li><span class="onboard__keys"><kbd>⌘</kbd><kbd>K</kbd></span><span>Search any company</span></li>
+      <li><span class="onboard__keys"><kbd class="onboard__click">click</kbd></span><span>Tap a pin for details</span></li>
+    </ul>
+    <button class="detail-card__ghost onboard-done" type="button" data-onboard-done>Got it</button>
+  `;
+  detailCard.querySelector("[data-onboard-done]").addEventListener("click", () => {
+    dismissOnboarding();
+    detailCard.classList.add("is-hidden");
+    detailCard.classList.remove("is-onboard");
+  });
 }
 
 function renderStartupDetail(startup) {
@@ -2631,7 +2720,7 @@ function renderSearchResults(query) {
   }
 
   if (!results.length) {
-    searchResults.innerHTML = `<div class="search-result" aria-disabled="true"><span class="search-result__body"><strong>No matches</strong><span>Try a company name, sector, stage, or neighborhood.</span></span></div>`;
+    searchResults.innerHTML = `<div class="search-result" aria-disabled="true"><span class="search-result__body"><strong>No matches</strong><span>Try a company name, sector, stage, or neighborhood.</span></span></div><a class="search-results__cta" href="https://github.com/Nutlope/interactive-3d-map/issues/new?template=add-startup.yml" target="_blank" rel="noreferrer noopener">Know a startup that belongs here? Add it to the atlas ↗</a>`;
     return;
   }
 

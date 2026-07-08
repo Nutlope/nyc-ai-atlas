@@ -13,6 +13,12 @@ The app was inspired by the interaction model of Levels.fyi Atlas: a left-side c
 - NYC context layers: Big Tech offices, VCs/events, coworking, universities, subway lines, parks, bridges, ferries, planes, cars, landmark buildings, and a mini map.
 - A richer Central Park layer with water bodies, lawns, paths, and trees.
 
+## Add Your Startup
+
+Know an AI startup with a real NYC office that belongs on the map? Fill out the [Add a startup form](https://github.com/Nutlope/interactive-3d-map/issues/new?template=add-startup.yml). It takes about a minute: company, website, NYC address, neighborhood, stage, sector, and a one-line blurb. A maintainer places the pin, fetches the logo, and ships it.
+
+You can also get there from the "Add your startup" button in the app, or from the link that appears when a search finds no matches.
+
 ## Data Sources
 
 Startup data is stored in [src/data.js](src/data.js). The source links are:
@@ -35,7 +41,7 @@ Important caveat: most addresses are reverse-geocoded from map-pin coordinates. 
 - Three.js
 - Vanilla JavaScript modules
 - CSS custom properties and plain CSS
-- Geist Pixel Square (single self-hosted UI font, SIL OFL)
+- Geist (single self-hosted variable UI font, SIL OFL)
 
 There is no React app or backend service. The scene is built in [src/main.js](src/main.js), geography lives in [src/geo.js](src/geo.js), data lives in [src/data.js](src/data.js), and UI styling lives in [src/styles.css](src/styles.css).
 

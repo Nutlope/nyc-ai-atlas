@@ -186,6 +186,47 @@ export const PARKS = [
     [40.7035, -73.9912],
     [40.696, -73.998],
   ],
+  // Riverside Park (Hudson greenway strip, W72 to the frame edge)
+  [
+    [40.769, -73.9945],
+    [40.776, -73.988],
+    [40.788, -73.979],
+    [40.799, -73.971],
+    [40.809, -73.9618],
+    [40.8085, -73.9585],
+    [40.7985, -73.9678],
+    [40.7875, -73.9758],
+    [40.7755, -73.9848],
+    [40.769, -73.9915],
+  ],
+  // Morningside Park
+  [
+    [40.7995, -73.9605],
+    [40.8065, -73.9552],
+    [40.806, -73.9527],
+    [40.799, -73.958],
+  ],
+  // Marcus Garvey Park (Harlem)
+  [
+    [40.8019, -73.9418],
+    [40.8025, -73.9445],
+    [40.8052, -73.9432],
+    [40.8046, -73.9405],
+  ],
+  // Carl Schurz Park (UES, East River)
+  [
+    [40.7738, -73.9478],
+    [40.7772, -73.9455],
+    [40.7765, -73.9435],
+    [40.7731, -73.9458],
+  ],
+  // Sara D. Roosevelt Park (LES)
+  [
+    [40.7167, -73.9918],
+    [40.7172, -73.9932],
+    [40.722, -73.9912],
+    [40.7215, -73.9898],
+  ],
   // Randalls Island (NE)
   [
     [40.788, -73.925],
@@ -207,12 +248,17 @@ export const DISTRICTS = [
   { name: "Midtown", bbox: [40.745, 40.764, -74.0, -73.965], count: 320, h: [0.7, 3.2], tall: 0.32 },
   { name: "UWS/UES", bbox: [40.764, 40.8, -73.99, -73.943], count: 260, h: [0.5, 1.7], tall: 0.1 },
   { name: "Harlem", bbox: [40.8, 40.814, -73.97, -73.936], count: 90, h: [0.4, 1.2], tall: 0.05 },
+  // Island-wide catch-all, iterated LAST among the lattice districts: the
+  // named districts above claim their block cells first, then this fills
+  // every remaining Manhattan cell (East Village, Kips Bay, Murray Hill,
+  // Two Bridges, the northern tip) so the island has no bald patches.
+  { name: "Manhattan Fill", bbox: [40.699, 40.818, -74.022, -73.926], count: 0, h: [0.35, 1.05], tall: 0.03 },
   // Outer boroughs are intentionally sparse + faded (see `faded`): the map is
   // "complete" for Manhattan and only sketches the edges where companies sit.
-  { name: "Brooklyn-N", bbox: [40.696, 40.736, -73.998, -73.952], count: 110, h: [0.25, 0.62], tall: 0, faded: true },
-  { name: "Brooklyn-S", bbox: [40.66, 40.696, -74.005, -73.93], count: 90, h: [0.22, 0.5], tall: 0, faded: true },
-  { name: "LIC/Queens", bbox: [40.74, 40.78, -73.96, -73.91], count: 70, h: [0.25, 0.6], tall: 0, faded: true },
-  { name: "JerseyCity", bbox: [40.69, 40.79, -74.07, -74.025], count: 90, h: [0.25, 0.58], tall: 0, faded: true },
+  { name: "Brooklyn-N", bbox: [40.696, 40.737, -73.999, -73.898], count: 560, h: [0.25, 0.62], tall: 0, faded: true },
+  { name: "Brooklyn-S", bbox: [40.655, 40.696, -74.02, -73.898], count: 660, h: [0.22, 0.5], tall: 0, faded: true },
+  { name: "LIC/Queens", bbox: [40.737, 40.783, -73.962, -73.898], count: 520, h: [0.25, 0.6], tall: 0, faded: true },
+  { name: "JerseyCity", bbox: [40.69, 40.806, -74.073, -73.995], count: 580, h: [0.25, 0.58], tall: 0, faded: true },
 ];
 
 // ---- Subway lines ---------------------------------------------------------
@@ -235,6 +281,7 @@ export const SUBWAY_LINES = [
       [40.7685, -73.9618], // 68 Hunter
       [40.7793, -73.9518], // 86
       [40.7911, -73.9419], // 110
+      [40.8005, -73.9398], // 125 (Harlem)
     ],
   },
   {
@@ -253,6 +300,9 @@ export const SUBWAY_LINES = [
       [40.7615, -73.9799], // 57-7
       [40.7646, -73.973], // 5 Av/59
       [40.7681, -73.9659], // Lexington/59
+      [40.7712, -73.9565], // 72 (Second Av Q)
+      [40.7788, -73.9508], // 86
+      [40.7846, -73.9468], // 96
     ],
   },
   {
@@ -270,6 +320,55 @@ export const SUBWAY_LINES = [
       [40.7681, -73.9819], // Columbus Circle (59)
       [40.7777, -73.9762], // 81 Museum
       [40.7905, -73.9647], // 110 Cathedral
+      [40.8002, -73.9581], // 116
+      [40.8082, -73.9516], // 125 (St Nicholas)
+    ],
+  },
+  {
+    name: "123",
+    color: 0xee352e, // red (Seventh Ave / Broadway)
+    stops: [
+      [40.7018, -74.013], // South Ferry
+      [40.7126, -74.0099], // Chambers
+      [40.7222, -74.0065], // Franklin
+      [40.7308, -74.0025], // Christopher
+      [40.7378, -73.9999], // 14 St
+      [40.7443, -73.9952], // 23
+      [40.7506, -73.9905], // 34 Penn Station
+      [40.7559, -73.9871], // Times Sq (42)
+      [40.768, -73.9822], // 59 Columbus Circle
+      [40.7737, -73.9818], // 66 Lincoln Center
+      [40.7838, -73.9769], // 79
+      [40.7935, -73.97], // 96
+      [40.8038, -73.963], // 116 Columbia
+      [40.8095, -73.9587], // 125
+    ],
+  },
+  {
+    name: "BDFM",
+    color: 0xff6319, // orange (Sixth Ave)
+    stops: [
+      [40.7183, -73.9945], // Grand St
+      [40.7258, -73.996], // B'way-Lafayette
+      [40.7323, -74.0003], // W4
+      [40.7382, -73.9963], // 14 St
+      [40.7429, -73.9929], // 23
+      [40.7497, -73.9878], // 34 Herald Sq
+      [40.7542, -73.9843], // 42 Bryant Pk
+      [40.7587, -73.9812], // 47-50 Rockefeller
+      [40.7638, -73.9776], // 57
+    ],
+  },
+  {
+    name: "7",
+    color: 0xb933ad, // purple (Flushing line)
+    stops: [
+      [40.7553, -74.0005], // 34 St Hudson Yards
+      [40.7559, -73.9871], // Times Sq
+      [40.7538, -73.9812], // 5 Av
+      [40.7522, -73.9769], // Grand Central
+      [40.7427, -73.9538], // Vernon-Jackson (LIC)
+      [40.747, -73.9455], // Court Sq
     ],
   },
   {

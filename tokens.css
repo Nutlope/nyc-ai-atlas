@@ -1,5 +1,5 @@
 /* NYC AI Atlas · design tokens
-   One family (Geist Pixel Square), four type sizes, one accent, glass surfaces. */
+   One family (Geist variable), four type sizes, one accent, glass surfaces. */
 :root {
   /* color */
   --color-paper: oklch(98.5% 0.004 250);
@@ -34,11 +34,11 @@
     0 24px 48px -16px oklch(20% 0.05 258 / 0.3),
     inset 0 1px 0 oklch(100% 0 0 / 0.6);
 
-  /* type: one family, four sizes */
-  --font-pixel: "Geist Pixel", "Courier New", monospace;
-  --font-display: var(--font-pixel);
-  --font-body: var(--font-pixel);
-  --font-mono: var(--font-pixel);
+  /* type: one family (Geist variable), four sizes */
+  --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-mono: var(--font-sans);
   --fs-xl: 24px;
   --fs-md: 15px;
   --fs-sm: 13px;
