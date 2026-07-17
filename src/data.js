@@ -12,7 +12,7 @@ export const AREAS = [
     shortLabel: "Whole Board",
     focus: { lat: 40.7278, lng: -73.9955, distance: 88, height: 62, rotation: 0.64 },
     description:
-      "45 AI companies, 8 neighborhoods, one city. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
+      "46 AI companies, 8 neighborhoods, one city. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
   },
   {
     id: "midtown",
@@ -93,6 +93,7 @@ export const STARTUPS = [
   { id: "df0ea37f", name: "Cognition", lat: 40.7319764, lng: -73.9865154, area: "flatiron", stage: "Early-Stage", sector: "Coding", office: "Satellite Office", website: "https://www.cognition-labs.com/", source: "felt+airtable" },
   { id: "69020f2f", name: "Cohere", lat: 40.7366681, lng: -74.0072847, area: "west-side", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: "Satellite Office", website: "https://cohere.com/", source: "felt+airtable" },
   { id: "7b24b80e", name: "Conductor AI", lat: 40.7063507, lng: -74.0071942, area: "fidi", stage: "Early-Stage", sector: "Manufacturing & Industrials", office: "HQ", website: "https://www.conductorai.co/", source: "felt+airtable" },
+  { id: "crosby", name: "Crosby", lat: 40.7221, lng: -73.9971, area: "soho", stage: "Early-Stage", sector: "Legal", office: "HQ", website: "https://crosby.ai/", source: "user" },
   { id: "6b79cd43", name: "Datadog", lat: 40.7514064, lng: -73.990283, area: "midtown", stage: "Public", sector: "DevOps", office: "HQ", website: "https://www.datadoghq.com/", source: "felt+airtable" },
   { id: "f0167ce8", name: "Diode", lat: 40.698723, lng: -73.9760711, area: "brooklyn", stage: "Early-Stage", sector: "Manufacturing & Industrials", office: "HQ", website: "https://diode.computer/", source: "felt+airtable" },
   { id: "ea7b3bc6", name: "Diplo AI", lat: 40.7076981, lng: -74.0083393, area: "fidi", stage: null, sector: "Mapped startup", office: null, website: null, source: "felt" },
@@ -143,6 +144,7 @@ export const COMPANY_INFO = {
   df0ea37f: { blurb: "Builder of Devin, the autonomous AI software engineer.", loc: "E 13th St · Greenwich Village" },
   "69020f2f": { blurb: "Enterprise LLMs and retrieval for secure, private business AI.", loc: "Bethune St · West Village" },
   "7b24b80e": { blurb: "AI that clears enterprise and government compliance paperwork.", loc: "Pearl St · FiDi" },
+  crosby: { blurb: "An AI-powered law firm automating contract review and negotiation for startups.", loc: "Crosby St · SoHo" },
   "6b79cd43": { blurb: "Cloud-scale observability and monitoring for modern software.", loc: "7th Ave · Midtown" },
   f0167ce8: { blurb: "AI copilot for designing electronics and printed circuit boards.", loc: "Brooklyn Navy Yard" },
   ea7b3bc6: { blurb: "AI automation for back-office and operations workflows.", loc: "William St · FiDi" },
