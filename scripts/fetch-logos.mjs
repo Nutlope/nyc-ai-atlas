@@ -37,8 +37,10 @@ const DIRECT_LOGO_ASSETS = new Map([
   ["Diplo AI", "https://www.google.com/s2/favicons?domain=diplo.ai&sz=128"],
   ["Fractal Tech", "https://github.com/fractal-tech.png?size=128"],
   ["Princeton", "https://www.google.com/s2/favicons?domain=princeton.edu&sz=128"],
+  ["Ramp", "https://ramp.com/favicon.ico"],
   ["Runhouse", "https://github.com/run-house.png?size=128"],
   ["Seek AI", "https://www.google.com/s2/favicons?domain=seek.ai&sz=128"],
+  ["VAST Data", "https://www.vastdata.com/favicon.svg"],
 ]);
 
 const palette = [

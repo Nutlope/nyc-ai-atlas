@@ -6,7 +6,7 @@ The app was inspired by the interaction model of Levels.fyi Atlas: a left-side c
 
 ## What It Shows
 
-- 46 AI/startup company points across Manhattan and Brooklyn.
+- 53 AI/startup company points across Manhattan and Brooklyn.
 - 8 explorable map areas: whole board, Midtown, Flatiron/Union Square, West Side/Chelsea, SoHo/NoHo, Tribeca/FiDi, Brooklyn, and Capital/Campuses.
 - Company labels with SVG logo assets from `public/logos`.
 - Company details with stage, sector, office type, website, source, and short blurbs.
@@ -132,4 +132,3 @@ Before pushing visual or data changes:
 4. Click through each area in the left legend and verify the camera flight, detail card, labels, and mini map update.
 5. Search for a few companies, including `Together AI`.
 6. Check browser console errors and broken logo images.
-
