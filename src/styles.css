@@ -412,6 +412,13 @@ body.is-focused .atlas-shell::after {
   color: var(--color-ink);
 }
 
+/* Area rows already communicate hover/focus with their background. Avoid the
+   global blue outline, which gets clipped by the scrolling rail. */
+.area-button:focus-visible {
+  outline: none;
+  background: oklch(20% 0.024 258 / 0.08);
+}
+
 .area-button:active {
   transform: translateY(1px);
 }
