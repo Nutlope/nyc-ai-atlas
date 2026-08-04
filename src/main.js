@@ -39,7 +39,6 @@ const searchResults = document.querySelector("#searchResults");
 const searchTrigger = document.querySelector("#searchTrigger");
 const searchModal = document.querySelector("#searchModal");
 let searchActiveIndex = -1;
-const labelToggle = document.querySelector("#labelToggle");
 const pinLegend = document.querySelector("#pinLegend");
 
 // Active-area description, moved under the selected row in the rail.
@@ -99,7 +98,6 @@ const markerMeshes = [];
 const startupMarkers = new Map();
 const labelElements = new Map();
 const labelDims = new Map();
-const contextLabelElements = [];
 const landmarkLabelElements = [];
 const waterSurfaces = [];
 const vehicleFleet = [];
@@ -348,7 +346,6 @@ function sourceLabel(item) {
 
 function areaItems(areaId) {
   if (areaId === "all") return STARTUPS;
-  if (areaId === "capital") return CONTEXT_POINTS;
   return STARTUPS.filter((startup) => startup.area === areaId);
 }
 
@@ -2148,13 +2145,6 @@ function createLabels() {
     labelElements.set(startup.id, button);
   });
 
-  CONTEXT_POINTS.filter((point) => point.category !== "Coffee").forEach((point) => {
-    const el = document.createElement("div");
-    el.className = "context-label";
-    el.textContent = point.name;
-    labelsLayer.appendChild(el);
-    contextLabelElements.push({ el, point });
-  });
 }
 
 function updateLabels() {
@@ -2254,22 +2244,6 @@ function updateLabels() {
     c.label.classList.toggle("has-leader", shift > 6);
   });
 
-  contextLabelElements.forEach(({ el, point }) => {
-    const world = project(point.lat, point.lng, 2.1);
-    const projected = world.project(camera);
-    const visibleOnScreen =
-      projected.z > -1 &&
-      projected.z < 1 &&
-      projected.x > -1.08 &&
-      projected.x < 1.08 &&
-      projected.y > -1.08 &&
-      projected.y < 1.08;
-    const show = state.activeAreaId === "capital" && visibleOnScreen;
-    el.style.left = `${(projected.x * 0.5 + 0.5) * width}px`;
-    el.style.top = `${(-projected.y * 0.5 + 0.5) * height}px`;
-    el.style.opacity = show ? "1" : "0";
-  });
-
   landmarkLabelElements.forEach(({ el, point }) => {
     const world = project(point.lat, point.lng, point.y);
     const projected = world.project(camera);
@@ -2280,7 +2254,7 @@ function updateLabels() {
       projected.x < 1.08 &&
       projected.y > -1.08 &&
       projected.y < 1.08;
-    const show = visibleOnScreen && (state.activeAreaId === "all" || state.activeAreaId === "capital" || state.labelsMode === "all");
+    const show = visibleOnScreen && (state.activeAreaId === "all" || state.labelsMode === "all");
     el.style.left = `${(projected.x * 0.5 + 0.5) * width}px`;
     el.style.top = `${(-projected.y * 0.5 + 0.5) * height}px`;
     el.style.opacity = show ? "1" : "0";
@@ -2343,9 +2317,6 @@ function updateUiState() {
   document.querySelectorAll(".mini-point").forEach((point) => {
     const item = STARTUPS.find((startup) => startup.id === point.dataset.id);
     point.classList.toggle("is-active", item?.area === state.activeAreaId || state.activeAreaId === "all");
-  });
-  labelToggle.querySelectorAll("button").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.mode === state.labelsMode);
   });
   document.body.classList.toggle("is-focused", Boolean(state.selectedId));
 
@@ -2773,13 +2744,13 @@ function bindEvents() {
     const tag = document.activeElement?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-    // ↑ / ↓ step through neighborhoods.
+    // ↑ / ↓ cycle through every view, wrapping between Brooklyn and Whole Board.
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const current = Math.max(0, AREAS.findIndex((a) => a.id === state.activeAreaId));
-      const next = event.key === "ArrowDown" ? current + 1 : current - 1;
-      const clamped = Math.min(AREAS.length - 1, Math.max(0, next));
-      if (clamped !== current) setActiveArea(AREAS[clamped].id);
+      const direction = event.key === "ArrowDown" ? 1 : -1;
+      const next = (current + direction + AREAS.length) % AREAS.length;
+      setActiveArea(AREAS[next].id);
     }
   });
 
@@ -2797,13 +2768,6 @@ function bindEvents() {
       return;
     }
     applyHashFromLocation();
-  });
-
-  labelToggle.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-mode]");
-    if (!button) return;
-    state.labelsMode = button.dataset.mode;
-    updateUiState();
   });
 
 }

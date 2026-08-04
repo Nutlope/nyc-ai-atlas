@@ -15,7 +15,7 @@
     <meta property="og:title" content="NYC AI Atlas: A 3D map of New York's AI startups" />
     <meta
       property="og:description"
-      content="An interactive 3D map of every AI startup in New York City, explored block by block across 8 neighborhoods."
+      content="An interactive 3D map of every AI startup in New York City, explored block by block across Manhattan and Brooklyn."
     />
     <meta property="og:image" content="./og.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
@@ -53,29 +53,23 @@
             </svg>
             <span class="brand__text">
               <h1>NYC AI Atlas</h1>
-              <span class="brand__sub">53 startups · 8 neighborhoods</span>
+              <span class="brand__sub">53 startups · 6 NYC clusters</span>
             </span>
           </a>
 
           <nav id="areaList" class="area-list" aria-label="Explore by area"></nav>
 
           <div class="rail__foot">
-            <div class="mode-row">
-              <span class="mode-row__label">Pins</span>
-              <div id="labelToggle" class="segmented" role="group" aria-label="Company label density">
-                <button type="button" data-mode="key">Curated</button>
-                <button type="button" data-mode="all">All</button>
-              </div>
-            </div>
             <div id="pinLegend" class="pin-legend"></div>
             <a
               class="rail__cta"
-              href="https://github.com/Nutlope/interactive-3d-map/blob/main/CONTRIBUTING.md"
+              href="https://github.com/Nutlope/nyc-ai-atlas/blob/main/CONTRIBUTING.md"
               target="_blank"
               rel="noreferrer noopener"
             >
-              <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 2.5c.41 0 .75.34.75.75v4h4a.75.75 0 0 1 0 1.5h-4v4a.75.75 0 0 1-1.5 0v-4h-4a.75.75 0 0 1 0-1.5h4v-4c0-.41.34-.75.75-.75Z"/></svg>
-              Add your startup
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5C5.37.5 0 5.78 0 12.29c0 5.2 3.44 9.6 8.21 11.16.6.11.82-.25.82-.56 0-.28-.01-1.02-.02-2-3.34.7-4.04-1.58-4.04-1.58-.55-1.36-1.33-1.73-1.33-1.73-1.09-.73.08-.71.08-.71 1.2.08 1.83 1.21 1.83 1.21 1.07 1.8 2.81 1.28 3.5.98.11-.76.42-1.28.76-1.57-2.67-.3-5.47-1.3-5.47-5.79 0-1.28.47-2.33 1.23-3.15-.12-.29-.53-1.49.12-3.11 0 0 1-.31 3.3 1.2.96-.26 1.98-.39 3-.4 1.02.01 2.04.14 3 .4 2.28-1.51 3.29-1.2 3.29-1.2.65 1.62.24 2.82.12 3.11.77.82 1.23 1.87 1.23 3.15 0 4.5-2.81 5.48-5.49 5.77.43.36.81 1.09.81 2.2 0 1.59-.01 2.87-.01 3.26 0 .31.21.68.83.56C20.57 21.88 24 17.48 24 12.29 24 5.78 18.63.5 12 .5Z"/></svg>
+              <span>Add your startup</span>
+              <span class="rail__cta-arrow" aria-hidden="true">↗</span>
             </a>
             <p class="rail__hint"><kbd>↑</kbd><kbd>↓</kbd> areas · <kbd>⌘K</kbd> search · click a pin</p>
             <p class="rail__credit">
@@ -93,7 +87,7 @@
           <span class="search-trigger__label">Search</span>
           <kbd>⌘K</kbd>
         </button>
-        <a class="icon-btn" href="https://github.com/Nutlope/interactive-3d-map" target="_blank" rel="noreferrer noopener" aria-label="View source on GitHub">
+        <a class="icon-btn" href="https://github.com/Nutlope/nyc-ai-atlas" target="_blank" rel="noreferrer noopener" aria-label="View source on GitHub">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5C5.37.5 0 5.78 0 12.29c0 5.2 3.44 9.6 8.21 11.16.6.11.82-.25.82-.56 0-.28-.01-1.02-.02-2-3.34.7-4.04-1.58-4.04-1.58-.55-1.36-1.33-1.73-1.33-1.73-1.09-.73.08-.71.08-.71 1.2.08 1.83 1.21 1.83 1.21 1.07 1.8 2.81 1.28 3.5.98.11-.76.42-1.28.76-1.57-2.67-.3-5.47-1.3-5.47-5.79 0-1.28.47-2.33 1.23-3.15-.12-.29-.53-1.49.12-3.11 0 0 1-.31 3.3 1.2.96-.26 1.98-.39 3-.4 1.02.01 2.04.14 3 .4 2.28-1.51 3.29-1.2 3.29-1.2.65 1.62.24 2.82.12 3.11.77.82 1.23 1.87 1.23 3.15 0 4.5-2.81 5.48-5.49 5.77.43.36.81 1.09.81 2.2 0 1.59-.01 2.87-.01 3.26 0 .31.21.68.83.56C20.57 21.88 24 17.48 24 12.29 24 5.78 18.63.5 12 .5Z"/></svg>
         </a>
       </div>

@@ -12,7 +12,7 @@ export const AREAS = [
     shortLabel: "Whole Board",
     focus: { lat: 40.7278, lng: -73.9955, distance: 88, height: 62, rotation: 0.64 },
     description:
-      "53 AI companies, 8 neighborhoods, one city. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
+      "53 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
   },
   {
     id: "midtown",
@@ -67,15 +67,6 @@ export const AREAS = [
     focus: { lat: 40.6995, lng: -73.982, distance: 46, height: 28, rotation: 1.18 },
     description:
       "Across the East River through DUMBO, Williamsburg, and the Navy Yard: open-source, hardware, and marketplace teams with room to build.",
-  },
-  {
-    id: "capital",
-    number: "08",
-    label: "Capital / Campuses",
-    shortLabel: "Capital",
-    focus: { lat: 40.735, lng: -73.9948, distance: 58, height: 42, rotation: 0.62 },
-    description:
-      "The support layer: the VCs, big-tech offices, coworking spaces, and university labs that explain why the startups cluster where they do.",
   },
 ];
 

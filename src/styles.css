@@ -483,73 +483,59 @@ body.is-focused .atlas-shell::after {
   border-radius: 50%;
 }
 
-.mode-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.mode-row__label {
-  color: var(--color-muted);
-  font-size: var(--fs-xs);
-}
-
-.segmented {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid oklch(20% 0.024 258 / 0.12);
-  border-radius: var(--radius-sm);
-  background: oklch(20% 0.024 258 / 0.05);
-}
-
-.segmented button {
-  min-height: 24px;
-  padding: 2px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-muted);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  transition:
-    background-color var(--dur-short) var(--ease-out),
-    color var(--dur-short) var(--ease-out);
-}
-
-.segmented button.is-active {
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font-weight: 550;
-  box-shadow: 0 1px 4px oklch(20% 0.05 258 / 0.22);
-}
-
 .rail__cta {
-  display: flex;
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 32px;
+  gap: 8px;
+  min-height: 36px;
   margin-top: 2px;
-  border: 1px solid var(--color-accent);
+  padding: 0 10px;
+  border: 1px solid oklch(20% 0.024 258 / 0.14);
   border-radius: var(--radius-sm);
-  color: var(--color-accent);
+  background: oklch(100% 0 0 / 0.34);
+  color: var(--color-ink-2);
   font-size: var(--fs-sm);
   font-weight: 550;
   text-decoration: none;
   transition:
     background-color var(--dur-short) var(--ease-out),
-    color var(--dur-short) var(--ease-out);
+    border-color var(--dur-short) var(--ease-out),
+    color var(--dur-short) var(--ease-out),
+    transform 140ms var(--ease-out);
 }
 
 .rail__cta svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 
-.rail__cta:hover {
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
+.rail__cta-arrow {
+  color: var(--color-muted);
+  font-size: var(--fs-xs);
+  transition: color var(--dur-short) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rail__cta:hover {
+    border-color: var(--color-ink);
+    background: var(--color-ink);
+    color: var(--color-accent-ink);
+    transform: translateY(-1px);
+  }
+
+  .rail__cta:hover .rail__cta-arrow {
+    color: var(--color-accent-ink);
+  }
+}
+
+.rail__cta:active {
+  transform: scale(0.98);
+}
+
+.rail__cta:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .rail__hint,
