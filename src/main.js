@@ -2335,7 +2335,6 @@ function updateUiState() {
 /* Deep links: #/company/:id and #/area/:id, with back/forward       */
 /* ---------------------------------------------------------------- */
 
-const BASE_TITLE = "NYC AI Atlas";
 let suppressHashEvent = false;
 
 function writeHash(hash) {
@@ -2375,7 +2374,6 @@ function setActiveArea(areaId, { keepSelection = false } = {}) {
   updateUiState();
   if (!keepSelection) {
     writeHash(areaId === "all" ? "#/" : `#/area/${areaId}`);
-    document.title = areaId === "all" ? BASE_TITLE : `${area.label} · ${BASE_TITLE}`;
   }
 }
 
@@ -2389,7 +2387,6 @@ function selectStartup(id) {
   renderStartupDetail(startup);
   updateUiState();
   writeHash(`#/company/${id}`);
-  document.title = `${startup.name} · ${BASE_TITLE}`;
 }
 
 function renderAreaDetail() {
@@ -2505,7 +2502,6 @@ function clearSelection() {
   renderAreaDetail(area);
   updateUiState();
   writeHash(area.id === "all" ? "#/" : `#/area/${area.id}`);
-  document.title = area.id === "all" ? BASE_TITLE : `${area.label} · ${BASE_TITLE}`;
 }
 
 function cameraDestination(focus) {
