@@ -106,6 +106,10 @@ const planeFleet = [];
 const subwayFleet = [];
 const birdFleet = [];
 let birdMesh = null;
+const sidewalkPlates = []; // block-plate centers, filled by createBuildings
+const pedFleet = [];
+let pedMesh = null;
+let pedRect = null;
 const treeBuffer = []; // { x, z, type: "conifer"|"round", scale, rot, colorIndex }
 let hoverCandidate = null;
 let pointerDown = null; // { x, y, item } captured on pointerdown to tell clicks from drags
@@ -785,8 +789,28 @@ const GRID = (() => {
   return { av, st, origin };
 })();
 
-
-
+// Lattice spacing shared by the buildings, the sidewalk plates, and the
+// traffic network, so cars drive in the same gaps the blocks leave open.
+const CELL_U = 0.00094; // street-to-street spacing (degree units along av)
+const CELL_V = 0.0026; // avenue-to-avenue spacing (degree units along st)
+const GRID_METRICS = (() => {
+  const gridOrigin = project(GRID.origin.lat, GRID.origin.lng);
+  const uVec = project(
+    GRID.origin.lat + GRID.av.dlat * CELL_U,
+    GRID.origin.lng + GRID.av.dlng * CELL_U,
+  ).sub(gridOrigin); // short block side (street to street)
+  const vVec = project(
+    GRID.origin.lat + GRID.st.dlat * CELL_V,
+    GRID.origin.lng + GRID.st.dlng * CELL_V,
+  ).sub(gridOrigin); // long block side (avenue to avenue)
+  return {
+    uVec,
+    vVec,
+    uLen: uVec.length(),
+    vLen: vVec.length(),
+    rot: Math.atan2(uVec.x, uVec.z),
+  };
+})();
 
 function createBridgeDetails() {
   const deckHeight = 0.62;
@@ -865,6 +889,45 @@ function createSubwayTrainMesh(color = 0x169b62) {
   return group;
 }
 
+// Lines that run outdoors once they leave Manhattan (the 7 over Queens, the
+// L toward Williamsburg) climb onto elevated viaducts there, so overground
+// tracks visibly weave through the cityscape.
+const ELEVATED_OUTSIDE = new Set(["7", "L"]);
+const VIADUCT_Y = 0.58;
+
+function trackY(line, lat, lng, baseY) {
+  const onManhattan = pointInPoly(lat, lng, MANHATTAN) || pointInPoly(lat, lng, ROOSEVELT_ISLAND);
+  if (onManhattan) return baseY;
+  const onFarBank = pointInPoly(lat, lng, BROOKLYN_QUEENS) || pointInPoly(lat, lng, JERSEY);
+  if (onFarBank) return ELEVATED_OUTSIDE.has(line.name) ? VIADUCT_Y : baseY;
+  return -0.62; // over open water: dive into a river tunnel
+}
+
+// Densely resampled route with a real vertical profile: surface ribbon on
+// Manhattan, a dip below the rivers, a viaduct on the far bank.
+function subwayProfile(line, baseY) {
+  const points = [];
+  const elevated = [];
+  const stops = line.stops;
+  for (let s = 0; s < stops.length - 1; s += 1) {
+    const [aLat, aLng] = stops[s];
+    const [bLat, bLng] = stops[s + 1];
+    const segs = Math.max(2, Math.round(project(aLat, aLng).distanceTo(project(bLat, bLng)) / 0.9));
+    for (let k = 0; k < segs; k += 1) {
+      const t = k / segs;
+      const lat = aLat + (bLat - aLat) * t;
+      const lng = aLng + (bLng - aLng) * t;
+      const y = trackY(line, lat, lng, baseY);
+      const point = project(lat, lng, y);
+      points.push(point);
+      if (y === VIADUCT_Y) elevated.push(point);
+    }
+  }
+  const [lastLat, lastLng] = stops[stops.length - 1];
+  points.push(project(lastLat, lastLng, trackY(line, lastLat, lastLng, baseY)));
+  return { points, elevated };
+}
+
 function createSubwayLayer() {
   // MTA-diagram styling: white station discs with a dark rim over the
   // colored route lines.
@@ -876,6 +939,8 @@ function createSubwayLayer() {
   const stationRimMaterial = new THREE.MeshStandardMaterial({ color: 0x22262e, roughness: 0.6 });
   const stationGeo = new THREE.CylinderGeometry(0.095, 0.095, 0.05, 16);
   const stationRimGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.036, 16);
+  const pierGeo = new THREE.CylinderGeometry(0.032, 0.05, 1, 8);
+  const pierMaterial = new THREE.MeshStandardMaterial({ color: 0x4b5158, roughness: 0.7 });
 
   SUBWAY_LINES.forEach((line, lineIndex) => {
     const lineMaterial = new THREE.MeshStandardMaterial({
@@ -884,10 +949,30 @@ function createSubwayLayer() {
       emissive: new THREE.Color(line.color).multiplyScalar(0.3),
     });
     const y = 0.05 + lineIndex * 0.007; // tiny stagger so overlapping lines don't z-fight
-    const { points } = makeTube(line.stops, 0.04, lineMaterial, y, line.stops.length * 12);
+    const { points, elevated } = subwayProfile(line, y);
+    const curve = new THREE.CatmullRomCurve3(points);
+    const track = new THREE.Mesh(
+      new THREE.TubeGeometry(curve, points.length * 3, 0.04, 8, false),
+      lineMaterial,
+    );
+    track.castShadow = true;
+    track.receiveShadow = true;
+    scene.add(track);
+
+    // Viaduct piers hold the elevated stretches up.
+    elevated.forEach((point, index) => {
+      if (index % 2 !== 0) return;
+      const pier = new THREE.Mesh(pierGeo, pierMaterial);
+      pier.scale.y = point.y;
+      pier.position.set(point.x, point.y / 2, point.z);
+      pier.castShadow = true;
+      scene.add(pier);
+    });
 
     line.stops.forEach(([lat, lng]) => {
-      const p = project(lat, lng, y + 0.035);
+      const stationY = trackY(line, lat, lng, y);
+      if (stationY < 0) return; // no station discs in the river
+      const p = project(lat, lng, stationY + 0.035);
       const rim = new THREE.Mesh(stationRimGeo, stationRimMaterial);
       rim.position.copy(p);
       scene.add(rim);
@@ -897,7 +982,9 @@ function createSubwayLayer() {
       scene.add(disk);
     });
 
-    // One train per line; the long trunk lines run a second.
+    // One train per line; the long trunk lines run a second. Trains ride the
+    // same profile, so they visibly dive into the river tunnels and climb
+    // the viaducts.
     const trainCount = line.stops.length >= 10 ? 2 : 1;
     for (let i = 0; i < trainCount; i += 1) {
       const train = createSubwayTrainMesh(line.color);
@@ -907,7 +994,6 @@ function createSubwayLayer() {
         path: points,
         t: lineIndex * 0.27 + i * 0.5,
         speed: 0.016 + lineIndex * 0.002,
-        y: y + 0.14,
       });
     }
   });
@@ -963,6 +1049,20 @@ function createFerries() {
         [40.741, -74.016],
         [40.755, -74.011],
         [40.767, -74.005],
+      ],
+    },
+    {
+      // Harbor loop: Battery out past Liberty and Ellis Islands and back,
+      // in Staten Island Ferry orange.
+      color: 0xf25c19,
+      path: [
+        [40.7005, -74.0155],
+        [40.6965, -74.026],
+        [40.6925, -74.034],
+        [40.6905, -74.0405],
+        [40.6945, -74.0375],
+        [40.699, -74.028],
+        [40.7005, -74.0155],
       ],
     },
   ];
@@ -1041,52 +1141,76 @@ function createPlanes() {
   });
 }
 
-function createRoadsAndRails() {
-  const roadRoutes = [
-    [
-      [40.704, -74.012],
-      [40.721, -74.005],
-      [40.736, -73.996],
-      [40.753, -73.986],
-      [40.771, -73.973],
-      [40.792, -73.957],
-    ],
-    [
-      [40.709, -74.006],
-      [40.726, -73.998],
-      [40.743, -73.989],
-      [40.764, -73.977],
-    ],
-    [
-      [40.719, -74.01],
-      [40.733, -74.006],
-      [40.744, -74.001],
-      [40.759, -73.993],
-    ],
-    [
-      [40.696, -73.988],
-      [40.704, -73.981],
-      [40.715, -73.969],
-      [40.728, -73.956],
-    ],
-    [
-      [40.704, -74.015],
-      [40.706, -74.006],
-      [40.708, -73.996],
-      [40.715, -73.985],
-    ],
-  ];
+// Streets ARE the gaps between the sidewalk block plates, so traffic paths
+// are generated on the same lattice the buildings use: every avenue with
+// enough land under it, the major crosstown streets, the two shoreline
+// highways, and the bridge decks. Every path is clipped to land, so cars
+// never drive through buildings, parks, or water.
+const ROAD_Y = 0.055;
 
-  // Hidden smooth paths that the traffic drives along (the visible grid is
-  // rendered separately). Kept invisible so cars appear to follow streets.
-  const roadPaths = roadRoutes.map((route) => {
-    const tube = makeTube(route, 0.042, materials.road, 0.05, 80);
-    tube.mesh.visible = false; // traffic guide only; the asphalt ground is the road
-    return tube;
+function streetAllowed(lat, lng) {
+  if (!pointInPoly(lat, lng, MANHATTAN)) return false;
+  if (pointInPoly(lat, lng, CENTRAL_PARK)) return false;
+  for (const park of PARKS) {
+    if (pointInPoly(lat, lng, park)) return false;
+  }
+  return true;
+}
+
+function gridStreetPoint(u, v, y) {
+  const lat = GRID.origin.lat + GRID.av.dlat * u + GRID.st.dlat * v;
+  const lng = GRID.origin.lng + GRID.av.dlng * u + GRID.st.dlng * v;
+  return { lat, lng, point: project(lat, lng, y) };
+}
+
+function createStreetNetwork() {
+  const paths = [];
+  const flushRun = (run, minLength) => {
+    if (run.length >= minLength) paths.push(run);
+    return [];
+  };
+
+  // Avenues: one traffic lane per lattice line, broken at parks and water.
+  for (let j = -7; j <= 8; j += 1) {
+    let run = [];
+    for (let i = -52; i <= 98; i += 1) {
+      const { lat, lng, point } = gridStreetPoint(i * CELL_U, j * CELL_V, ROAD_Y);
+      if (streetAllowed(lat, lng)) run.push(point);
+      else run = flushRun(run, 8);
+    }
+    flushRun(run, 8);
+  }
+
+  // Major crosstown streets: Canal, Houston, 14th, 23rd, 34th, 42nd, 57th.
+  for (const i of [-21, -12, 0, 9, 20, 28, 43]) {
+    let run = [];
+    for (let j = -8; j <= 8; j += 0.5) {
+      const { lat, lng, point } = gridStreetPoint(i * CELL_U, j * CELL_V, ROAD_Y);
+      if (streetAllowed(lat, lng)) run.push(point);
+      else run = flushRun(run, 5);
+    }
+    flushRun(run, 5);
+  }
+
+  // Shoreline highways: West Side Highway + FDR Drive, inset from the water.
+  const westShore = MANHATTAN.slice(0, 13)
+    .map(([lat, lng]) => [lat, lng + 0.0016])
+    .filter(([lat, lng]) => pointInPoly(lat, lng, MANHATTAN))
+    .map(([lat, lng]) => project(lat, lng, ROAD_Y));
+  if (westShore.length >= 4) paths.push(westShore);
+  const eastShore = MANHATTAN.slice(13)
+    .map(([lat, lng]) => [lat, lng - 0.0016])
+    .filter(([lat, lng]) => pointInPoly(lat, lng, MANHATTAN))
+    .map(([lat, lng]) => project(lat, lng, ROAD_Y));
+  if (eastShore.length >= 4) paths.push(eastShore);
+
+  // Bridge decks carry their own traffic, up at deck height.
+  BRIDGES.forEach((bridge) => {
+    paths.push(bridge.deck.map(([lat, lng]) => project(lat, lng, 0.72)));
   });
-  createBridgeDetails();
 
-  return roadPaths;
+  createBridgeDetails();
+  return paths;
 }
 
 function buildingAllowed(lat, lng) {
@@ -1129,20 +1253,7 @@ function createBuildings() {
   // Manhattan buildings live INSIDE street blocks, aligned to the same
   // lattice the visible grid draws. Shared block placement is what makes the
   // city read as a real city instead of scattered boxes.
-  const CELL_U = 0.00094; // street-to-street spacing (degree units along av)
-  const CELL_V = 0.0026; // avenue-to-avenue spacing (degree units along st)
-  const gridOrigin = project(GRID.origin.lat, GRID.origin.lng);
-  const uVec = project(
-    GRID.origin.lat + GRID.av.dlat * CELL_U,
-    GRID.origin.lng + GRID.av.dlng * CELL_U,
-  ).sub(gridOrigin); // short block side (street to street)
-  const vVec = project(
-    GRID.origin.lat + GRID.st.dlat * CELL_V,
-    GRID.origin.lng + GRID.st.dlng * CELL_V,
-  ).sub(gridOrigin); // long block side (avenue to avenue)
-  const uLen = uVec.length();
-  const vLen = vVec.length();
-  const gridRot = Math.atan2(uVec.x, uVec.z); // building depth spans street-to-street
+  const { uVec, vVec, uLen, vLen, rot: gridRot } = GRID_METRICS;
 
   const filledCells = new Set();
   const blockPlates = []; // one raised sidewalk plate per city block
@@ -1431,6 +1542,10 @@ function createBuildings() {
   storefrontMesh.count = storefrontCount;
   scene.add(storefrontMesh);
 
+  // Keep the plate centers around: pedestrians walk their perimeters.
+  sidewalkPlates.length = 0;
+  sidewalkPlates.push(...blockPlates);
+
   // Sidewalk plates: the city blocks themselves, floated just above the
   // asphalt ground so the streets are the gaps between them. Avenue gaps run
   // wider than cross-street gaps, like the real grid.
@@ -1678,10 +1793,72 @@ function createLandmarks() {
     arm.position.set(sp.x + 0.16, 1.95, sp.z);
     arm.rotation.z = -0.5;
     scene.add(arm);
-    const torch = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 8), materials.yellowGlow || materials.copper);
+    const torchMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffd671,
+      emissive: new THREE.Color(0xffb020).multiplyScalar(0.55),
+      roughness: 0.3,
+    });
+    const torch = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 8), torchMaterial);
     torch.position.set(sp.x + 0.3, 2.25, sp.z);
     scene.add(torch);
+    // Crown: a ring of seven copper spikes.
+    for (let i = 0; i < 7; i += 1) {
+      const angle = -Math.PI * 0.75 + (i / 6) * Math.PI * 1.5;
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.014, 0.11, 5), materials.copper);
+      spike.position.set(sp.x + Math.cos(angle) * 0.08, 2.12, sp.z + Math.sin(angle) * 0.08);
+      spike.rotation.z = Math.cos(angle) * 0.55;
+      spike.rotation.x = -Math.sin(angle) * 0.55;
+      scene.add(spike);
+    }
     addLandmarkLabel("Statue of Liberty", LANDMARKS.statueLiberty.lat, LANDMARKS.statueLiberty.lng, 2.6);
+  }
+
+  // --- Washington Square Arch ---
+  {
+    const ap = project(40.731, -73.9973);
+    for (const dx of [-0.14, 0.14]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.34, 0.09), stone);
+      leg.position.set(ap.x + dx, 0.17, ap.z);
+      leg.castShadow = true;
+      scene.add(leg);
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.13, 0.12), stone);
+    lintel.position.set(ap.x, 0.4, ap.z);
+    lintel.castShadow = true;
+    scene.add(lintel);
+  }
+
+  // --- Guggenheim: the inverted-ziggurat rotunda ---
+  {
+    const gp = project(40.783, -73.959);
+    let gy = 0;
+    for (let i = 0; i < 4; i += 1) {
+      const r = 0.15 + i * 0.045;
+      const drum = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.93, 0.13, 20), stone);
+      drum.position.set(gp.x, gy + 0.065, gp.z);
+      drum.castShadow = true;
+      scene.add(drum);
+      gy += 0.13;
+    }
+    addLandmarkLabel("Guggenheim", 40.783, -73.959, 1.0);
+  }
+
+  // --- St. Patrick's Cathedral: nave + twin spires facing Fifth Avenue ---
+  {
+    const cp2 = project(40.7585, -73.976);
+    const nave = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.3, 0.68), stone);
+    nave.position.set(cp2.x, 0.15, cp2.z);
+    nave.rotation.y = 0.5;
+    nave.castShadow = true;
+    scene.add(nave);
+    for (const off of [-0.11, 0.11]) {
+      const anchor = new THREE.Vector3(off, 0, 0.3).applyAxisAngle(UP, 0.5);
+      const spire = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.5, 6), stone);
+      spire.position.set(cp2.x + anchor.x, 0.52, cp2.z + anchor.z);
+      spire.castShadow = true;
+      scene.add(spire);
+    }
+    addLandmarkLabel("St. Patrick's", 40.7585, -73.976, 1.1);
   }
 
   // --- Oculus (WTC transit hub): ribbed white ellipsoid ---
@@ -1941,22 +2118,99 @@ function createCarMesh(color) {
   return group;
 }
 
+function createBusMesh() {
+  const group = new THREE.Group();
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xf4f6f8, roughness: 0.5 });
+  const stripeMaterial = new THREE.MeshStandardMaterial({ color: 0x1c4fd6, roughness: 0.45 });
+  const glassMaterial = new THREE.MeshStandardMaterial({ color: 0x9ec6d4, roughness: 0.2, transparent: true, opacity: 0.88 });
+  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x171a1f, roughness: 0.72 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 1.5), bodyMaterial);
+  body.position.y = 0.26;
+  body.castShadow = true;
+  group.add(body);
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.43, 0.07, 1.5), stripeMaterial);
+  stripe.position.y = 0.18;
+  group.add(stripe);
+  const windows = new THREE.Mesh(new THREE.BoxGeometry(0.43, 0.09, 1.3), glassMaterial);
+  windows.position.y = 0.34;
+  group.add(windows);
+  const wheelGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.075, 12);
+  wheelGeo.rotateZ(Math.PI / 2);
+  for (const x of [-0.22, 0.22]) {
+    for (const z of [-0.52, 0.52]) {
+      const wheel = new THREE.Mesh(wheelGeo, wheelMaterial);
+      wheel.position.set(x, 0.08, z);
+      group.add(wheel);
+    }
+  }
+  return group;
+}
+
+function createTruckMesh(color) {
+  const group = new THREE.Group();
+  const cabMaterial = new THREE.MeshStandardMaterial({ color, roughness: 0.45 });
+  const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xe9e6dd, roughness: 0.6 });
+  const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x171a1f, roughness: 0.72 });
+
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.26, 0.34), cabMaterial);
+  cab.position.set(0, 0.21, 0.5);
+  cab.castShadow = true;
+  group.add(cab);
+  const cargo = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.4, 0.86), boxMaterial);
+  cargo.position.set(0, 0.28, -0.12);
+  cargo.castShadow = true;
+  group.add(cargo);
+  const wheelGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.075, 12);
+  wheelGeo.rotateZ(Math.PI / 2);
+  for (const x of [-0.22, 0.22]) {
+    for (const z of [-0.4, 0.48]) {
+      const wheel = new THREE.Mesh(wheelGeo, wheelMaterial);
+      wheel.position.set(x, 0.08, z);
+      group.add(wheel);
+    }
+  }
+  return group;
+}
+
+function pathWorldLength(path) {
+  let length = 0;
+  for (let i = 1; i < path.length; i += 1) length += path[i].distanceTo(path[i - 1]);
+  return length;
+}
+
 function createVehicles(roadPaths) {
   // Weighted toward taxi yellow: roughly 4 in 10 cars read as NYC cabs.
   const carColors = [0xf7b500, 0xe54c42, 0xf7b500, 0x2e6cff, 0xf7b500, 0x30b37c, 0xf4f1e8, 0xf7b500, 0x3c414b, 0x2e6cff];
+  const truckColors = [0x8a4b3a, 0x3c5a48, 0x39424e];
   const random = seededRandom(700);
-  for (let i = 0; i < 34; i += 1) {
-    const mesh = createCarMesh(carColors[i % carColors.length]);
-    scene.add(mesh);
-    const path = roadPaths[i % roadPaths.length].points;
-    vehicleFleet.push({
-      mesh,
-      path,
-      t: random(),
-      speed: 0.018 + random() * 0.026,
-      lane: (random() - 0.5) * 0.32,
-    });
-  }
+  // Long avenues get proportionally more traffic than short bridge decks.
+  let built = 0;
+  roadPaths.forEach((path) => {
+    const length = pathWorldLength(path);
+    const count = Math.max(1, Math.round(length / 16));
+    for (let i = 0; i < count && built < 96; i += 1) {
+      const kind = built % 9 === 4 ? "bus" : built % 7 === 3 ? "truck" : "car";
+      const mesh =
+        kind === "bus"
+          ? createBusMesh()
+          : kind === "truck"
+            ? createTruckMesh(truckColors[built % truckColors.length])
+            : createCarMesh(carColors[built % carColors.length]);
+      // Vehicles are scaled to fit inside the avenue gaps between block plates.
+      mesh.scale.setScalar(kind === "car" ? 0.58 : 0.6);
+      scene.add(mesh);
+      vehicleFleet.push({
+        mesh,
+        path,
+        t: random(),
+        // Normalize by path length so world speed is consistent everywhere.
+        speed: (0.65 + random() * 0.5) / Math.max(4, length),
+        lane: (random() - 0.5) * 0.09,
+      });
+      built += 1;
+    }
+  });
 }
 
 function samplePath(path, t) {
@@ -1977,7 +2231,7 @@ function updateVehicles(delta) {
     vehicle.t += delta * vehicle.speed;
     const { point, tangent, normal } = samplePath(vehicle.path, vehicle.t);
     vehicle.mesh.position.copy(point).addScaledVector(normal, vehicle.lane);
-    vehicle.mesh.position.y = 0.24;
+    vehicle.mesh.position.y = point.y + 0.02; // wheels on the asphalt (or the bridge deck)
     vehicle.mesh.rotation.y = Math.atan2(tangent.x, tangent.z);
   });
 }
@@ -1987,7 +2241,7 @@ function updateTransit(delta) {
     vehicle.t += delta * vehicle.speed;
     const { point, tangent } = samplePath(vehicle.path, vehicle.t);
     vehicle.mesh.position.copy(point);
-    vehicle.mesh.position.y = vehicle.y ?? 0.36;
+    vehicle.mesh.position.y = point.y + 0.09;
     vehicle.mesh.rotation.y = Math.atan2(tangent.x, tangent.z);
   });
 
@@ -2105,6 +2359,127 @@ function updateClouds(delta) {
     child.position.x += delta * child.userData.speed;
     if (child.position.x > 78) child.position.x = -78;
   });
+}
+
+// Soft-edged translucent pads hovering low over the out-of-focus areas
+// (Brooklyn, Queens, Jersey): a cheap stand-in for depth-of-field blur that
+// keeps Manhattan crisp while the map's edges dissolve into atmosphere.
+// Company pins out there still poke above the haze.
+function makeHazeTexture() {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(128, 128, 24, 128, 128, 128);
+  g.addColorStop(0, "rgba(226, 236, 243, 0.8)");
+  g.addColorStop(0.65, "rgba(226, 236, 243, 0.45)");
+  g.addColorStop(1, "rgba(226, 236, 243, 0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function createHaze() {
+  const tex = makeHazeTexture();
+  const pads = [
+    { lat: 40.682, lng: -73.952, w: 48, d: 36 }, // Brooklyn
+    { lat: 40.714, lng: -73.928, w: 32, d: 26 }, // Williamsburg / Bushwick
+    { lat: 40.762, lng: -73.918, w: 32, d: 28 }, // LIC / Astoria
+    { lat: 40.742, lng: -74.048, w: 28, d: 48 }, // Jersey
+  ];
+  pads.forEach((pad, index) => {
+    const material = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    plane.rotation.x = -Math.PI / 2;
+    const p = project(pad.lat, pad.lng, 0.85 + index * 0.02);
+    plane.position.copy(p);
+    plane.scale.set(pad.w, pad.d, 1);
+    plane.renderOrder = 4;
+    scene.add(plane);
+  });
+}
+
+// Tiny walkers looping the sidewalk edges of the Manhattan blocks: one
+// instanced mesh, a couple hundred matrix updates per frame.
+function rectPerimeterPoint(t, hx, hz, out) {
+  const perimeter = 4 * (hx + hz);
+  let d = (((t % 1) + 1) % 1) * perimeter;
+  if (d < 2 * hx) return out.set(-hx + d, 0, -hz);
+  d -= 2 * hx;
+  if (d < 2 * hz) return out.set(hx, 0, -hz + d);
+  d -= 2 * hz;
+  if (d < 2 * hx) return out.set(hx - d, 0, hz);
+  d -= 2 * hx;
+  return out.set(-hx, 0, hz - d);
+}
+
+const PED_PALETTE = [0x30343c, 0x6b7280, 0x9a4a3f, 0x3b5f8a, 0x7d6a4f, 0xb8b2a4, 0x51606b, 0x8c3f5d].map(
+  (c) => new THREE.Color(c),
+);
+
+function createPedestrians() {
+  if (!sidewalkPlates.length) return;
+  const random = seededRandom(515);
+  const { uLen, vLen, rot } = GRID_METRICS;
+  pedRect = {
+    hx: (vLen - 0.26) / 2 + 0.06, // just outside the plate edge: the curb line
+    hz: (uLen - 0.12) / 2 + 0.05,
+    cos: Math.cos(rot),
+    sin: Math.sin(rot),
+  };
+  const total = Math.min(240, sidewalkPlates.length * 3);
+  for (let i = 0; i < total; i += 1) {
+    const plate = sidewalkPlates[Math.floor(random() * sidewalkPlates.length)];
+    pedFleet.push({
+      cx: plate.x,
+      cz: plate.z,
+      t: random(),
+      speed: (0.008 + random() * 0.009) * (random() < 0.5 ? 1 : -1),
+      phase: random() * Math.PI * 2,
+      size: 0.8 + random() * 0.45,
+    });
+  }
+  const geo = new THREE.BoxGeometry(0.05, 0.15, 0.05);
+  geo.translate(0, 0.075, 0); // feet at the origin
+  pedMesh = new THREE.InstancedMesh(
+    geo,
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }),
+    pedFleet.length,
+  );
+  pedFleet.forEach((_, i) => pedMesh.setColorAt(i, PED_PALETTE[i % PED_PALETTE.length]));
+  scene.add(pedMesh);
+}
+
+const pedMatrix = new THREE.Matrix4();
+const pedLocal = new THREE.Vector3();
+const pedPos = new THREE.Vector3();
+const pedScale = new THREE.Vector3();
+const pedQuat = new THREE.Quaternion();
+
+function updatePedestrians(delta, elapsed) {
+  if (!pedMesh) return;
+  pedFleet.forEach((ped, i) => {
+    ped.t += delta * ped.speed;
+    rectPerimeterPoint(ped.t, pedRect.hx, pedRect.hz, pedLocal);
+    pedPos.set(
+      ped.cx + pedLocal.x * pedRect.cos + pedLocal.z * pedRect.sin,
+      0.032,
+      ped.cz - pedLocal.x * pedRect.sin + pedLocal.z * pedRect.cos,
+    );
+    // A whisper of bounce sells the walk without skeletal anything.
+    const bob = 1 + Math.sin(elapsed * 9 + ped.phase) * 0.06;
+    pedScale.set(ped.size, ped.size * bob, ped.size);
+    pedMatrix.compose(pedPos, pedQuat, pedScale);
+    pedMesh.setMatrixAt(i, pedMatrix);
+  });
+  pedMesh.instanceMatrix.needsUpdate = true;
 }
 
 function updateWater(elapsed) {
@@ -2774,6 +3149,7 @@ function animate() {
   updateFlight();
   updateWater(elapsed);
   updateVehicles(delta);
+  updatePedestrians(delta, elapsed);
   updateTransit(delta);
   updateClouds(delta);
   updateBirds(elapsed);
@@ -2790,9 +3166,10 @@ function init() {
   createBaseMap();
   createStreetTrees();
   buildTrees();
-  const roadPaths = createRoadsAndRails();
+  const roadPaths = createStreetNetwork();
   createSubwayLayer();
   createBuildings();
+  createPedestrians();
   createLandmarks();
   createMarkers();
   createVehicles(roadPaths);
@@ -2800,6 +3177,7 @@ function init() {
   createPlanes();
   createClouds();
   createBirds();
+  createHaze();
   createLabels();
   renderAreaList();
   renderMiniMap();
