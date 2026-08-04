@@ -2152,7 +2152,7 @@ function updateLabels() {
   const height = window.innerHeight;
   const activeItems = new Set(areaItems(state.activeAreaId).map((item) => item.id));
   const activeArea = state.activeAreaId;
-  const keyNames = new Set(["Eleven Labs", "Together AI", "Pinecone", "Runway", "Hebbia", "Cohere", "Hugging Face", "Norm AI", "Modal", "Datadog", "Wiz", "Lux Capital"]);
+  const keyNames = new Set(["Eleven Labs", "Together AI", "Pinecone", "Runway", "Hebbia", "Cohere", "Hugging Face", "Norm AI", "Modal", "Wiz", "Lux Capital"]);
 
   // Phase 1: figure out which labels are visible and where their pins land.
   const candidates = [];

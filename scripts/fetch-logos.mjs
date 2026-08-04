@@ -10,17 +10,13 @@ const outputDir = path.join(root, "public", "logos");
 const SIMPLE_ICON_CANDIDATES = new Map([
   ["Character.ai", ["characterai"]],
   ["Cohere", ["cohere"]],
-  ["Datadog", ["datadog"]],
   ["Eleven Labs", ["elevenlabs"]],
-  ["Etsy", ["etsy"]],
   ["Hugging Face", ["huggingface"]],
   ["Modal", ["modal"]],
   ["Pinecone", ["pinecone"]],
   ["Replit", ["replit"]],
-  ["Robinhood", ["robinhood"]],
   ["Runway", ["runway"]],
   ["Snowflake", ["snowflake"]],
-  ["Spotify", ["spotify"]],
   ["Together AI", ["together"]],
   ["Wiz", ["wiz"]],
 ]);
@@ -35,7 +31,6 @@ const WEBSITE_OVERRIDES = new Map([
 
 const DIRECT_LOGO_ASSETS = new Map([
   ["Diplo AI", "https://www.google.com/s2/favicons?domain=diplo.ai&sz=128"],
-  ["Fractal Tech", "https://github.com/fractal-tech.png?size=128"],
   ["Princeton", "https://www.google.com/s2/favicons?domain=princeton.edu&sz=128"],
   ["Ramp", "https://ramp.com/favicon.ico"],
   ["Runhouse", "https://github.com/run-house.png?size=128"],

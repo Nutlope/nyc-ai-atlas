@@ -10,7 +10,7 @@ This repo is a Vite + Three.js single-page app for the NYC AI Atlas. Use this fi
 - Runtime: Vite, Three.js, vanilla JavaScript modules, plain CSS.
 - Dev command: `npm run dev`
 - Build command: `npm run build`
-- Current dataset: 53 startups in `STARTUPS` from `src/data.js`.
+- Current dataset: 47 startups in `STARTUPS` from `src/data.js`.
 
 ## File Map
 
