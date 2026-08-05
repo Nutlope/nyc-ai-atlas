@@ -13,5 +13,10 @@
   "dependencies": {
     "three": "^0.178.0",
     "vite": "^7.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.18"
+    }
   }
 }
