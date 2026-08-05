@@ -12,7 +12,7 @@ export const AREAS = [
     shortLabel: "Whole Board",
     focus: { lat: 40.7278, lng: -73.9955, distance: 88, height: 62, rotation: 0.64 },
     description:
-      "47 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
+      "48 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
   },
   {
     id: "midtown",
@@ -102,6 +102,7 @@ export const STARTUPS = [
   { id: "90fc53b8", name: "Norm AI", lat: 40.7060838, lng: -74.0110631, area: "fidi", stage: "Early-Stage", sector: "Legal", office: "HQ", website: "https://www.norm.ai/", source: "felt+airtable" },
   { id: "openrouter", name: "OpenRouter", lat: 40.747166, lng: -73.98327, area: "midtown", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://openrouter.ai/", source: "company", address: "169 Madison Avenue, New York, NY 10016" },
   { id: "5775e245", name: "osmo.ai", lat: 40.7364459, lng: -73.989878, area: "flatiron", stage: "Early-Stage", sector: "AI Application", office: "HQ", website: "https://www.osmo.ai/", source: "felt+airtable" },
+  { id: "parallel-web-systems", name: "Parallel Web Systems", lat: 40.7410116, lng: -73.9849372, area: "flatiron", stage: "Early-Stage", sector: "AI/Data Infrastructure", office: "Satellite Office", website: "https://parallel.ai/", source: "user", address: "110 East 25th Street, New York, NY 10010" },
   { id: "a9d9b894", name: "Patronus.ai", lat: 40.7301567, lng: -73.9877532, area: "flatiron", stage: "Early-Stage", sector: "DevOps", office: "HQ", website: "https://www.patronus.ai/", source: "felt+airtable" },
   { id: "9d2f04ad", name: "Pinecone", lat: 40.7477441, lng: -73.988356, area: "midtown", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://www.pinecone.io/", source: "felt+airtable" },
   { id: "bbf65c57", name: "PromptLayer", lat: 40.731321, lng: -73.9935622, area: "flatiron", stage: "Early-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://promptlayer.com/", source: "felt+airtable" },
@@ -154,6 +155,7 @@ export const COMPANY_INFO = {
   "90fc53b8": { blurb: "AI agents that automate regulatory compliance.", loc: "Broad St · FiDi" },
   openrouter: { blurb: "A unified API and routing layer for hundreds of AI models.", loc: "Madison Ave · Midtown South" },
   "5775e245": { blurb: "Giving computers a sense of smell by digitizing scent.", loc: "Union Sq West · Union Square" },
+  "parallel-web-systems": { blurb: "Web search and data-extraction APIs built for AI agents.", loc: "E 25th St · NoMad" },
   a9d9b894: { blurb: "Automated evaluation and guardrails for large language models.", loc: "E 10th St · Greenwich Village" },
   "9d2f04ad": { blurb: "The vector database powering AI search and retrieval.", loc: "34th St · Midtown" },
   bbf65c57: { blurb: "Prompt management and observability for teams building on LLMs.", loc: "E 8th St · Greenwich Village" },
