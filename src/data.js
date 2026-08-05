@@ -12,7 +12,7 @@ export const AREAS = [
     shortLabel: "Whole Board",
     focus: { lat: 40.7278, lng: -73.9955, distance: 88, height: 62, rotation: 0.64 },
     description:
-      "48 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
+      "49 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
   },
   {
     id: "midtown",
@@ -77,6 +77,7 @@ export const STARTUPS = [
   { id: "65a0d5fc", name: "Abnormal Security", lat: 40.7349661, lng: -73.9905946, area: "flatiron", stage: null, sector: "Mapped startup", office: null, website: null, source: "felt" },
   { id: "d5a8e3da", name: "Adonis", lat: 40.7058848, lng: -74.0091414, area: "fidi", stage: null, sector: "Mapped startup", office: null, website: null, source: "felt" },
   { id: "alphasense", name: "AlphaSense", lat: 40.7538005, lng: -73.9962297, area: "west-side", stage: "Late-Stage", sector: "Financial Services", office: "HQ", website: "https://www.alpha-sense.com/", source: "company", address: "441 Ninth Avenue, New York, NY 10001" },
+  { id: "arca", name: "Arca", lat: 40.743392, lng: -73.9861635, area: "flatiron", stage: "Early-Stage", sector: "Financial Services", office: "HQ", website: "https://arcawealth.ai/", source: "user" },
   { id: "01d9c120", name: "Arena AI", lat: 40.7349396, lng: -73.9885798, area: "flatiron", stage: "Early-Stage", sector: "Enterprise Automation", office: "HQ", website: "https://www.arena-ai.com/", source: "felt+airtable" },
   { id: "24a8d04f", name: "Axion Ray", lat: 40.7156999, lng: -73.963491, area: "brooklyn", stage: "Early-Stage", sector: "Manufacturing & Industrials", office: "HQ", website: "https://www.axionray.com/", source: "felt+airtable" },
   { id: "02910734", name: "Basis", lat: 40.7377422, lng: -73.9908636, area: "flatiron", stage: "Early-Stage", sector: "Financial Services", office: "HQ", website: "https://www.getbasis.ai/", source: "felt+airtable" },
@@ -130,6 +131,7 @@ export const COMPANY_INFO = {
   "65a0d5fc": { blurb: "AI-native security that stops socially-engineered email and account-takeover attacks.", loc: "Union Square" },
   d5a8e3da: { blurb: "Automates healthcare revenue cycle and medical billing with AI.", loc: "Wall St · FiDi" },
   alphasense: { blurb: "AI-powered market intelligence for financial and business research.", loc: "9th Ave · Hudson Yards" },
+  arca: { blurb: "An AI-native financial services firm where agents run financial planning and business operations.", loc: "E 27th St · NoMad" },
   "01d9c120": { blurb: "AI agents that optimize pricing and operations for industrial enterprises.", loc: "E 15th St · Union Square" },
   "24a8d04f": { blurb: "AI quality engineering that catches manufacturing defects before they ship.", loc: "Grand St · Williamsburg" },
   "02910734": { blurb: "Autonomous AI agents that do real accounting work alongside finance teams.", loc: "E 18th St · Flatiron" },
