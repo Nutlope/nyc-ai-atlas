@@ -1,7 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { STARTUPS } from "../src/data.js";
+import { loadAllCities } from "../src/cities/index.js";
+import { ensureProxyAware } from "./lib/net.mjs";
+
+ensureProxyAware();
+
+const CITIES = await loadAllCities();
+
+// Every city's startups, tagged so the report says which map a pin is on.
+const STARTUPS = CITIES.flatMap((city) => city.startups.map((s) => ({ ...s, city: city.name })));
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -75,6 +83,7 @@ async function main() {
     const geocode = await reverseGeocode(startup);
     rows.push({
       name: startup.name,
+      city: startup.city,
       address: geocode.address,
       addressSource: geocode.addressSource,
       lat: startup.lat,
@@ -85,12 +94,13 @@ async function main() {
     if (!startup.address) await delay(1100);
   }
 
-  const csvHeader = ["Company", "Address", "Address Source", "Latitude", "Longitude", "Area", "Startup Source"];
+  const csvHeader = ["Company", "City", "Address", "Address Source", "Latitude", "Longitude", "Area", "Startup Source"];
   const csv = [
     csvHeader.join(","),
     ...rows.map((row) =>
       [
         row.name,
+        row.city,
         row.address,
         row.addressSource,
         row.lat,
@@ -104,13 +114,13 @@ async function main() {
   ].join("\n");
 
   const markdown = [
-    "# NYC AI Atlas Company Address Report",
+    "# AI Atlas Company Address Report",
     "",
     "Addresses are derived from the stored map-pin coordinates unless an explicit address is stored in the dataset. Coordinate-derived addresses verify the nearest mapped address for the pin, not the company's current lease or office occupancy.",
     "",
-    "| Company | Address | Address source |",
-    "| --- | --- | --- |",
-    ...rows.map((row) => `| ${row.name} | ${row.address || "Not resolved"} | ${row.addressSource} |`),
+    "| Company | City | Address | Address source |",
+    "| --- | --- | --- | --- |",
+    ...rows.map((row) => `| ${row.name} | ${row.city} | ${row.address || "Not resolved"} | ${row.addressSource} |`),
     "",
   ].join("\n");
 

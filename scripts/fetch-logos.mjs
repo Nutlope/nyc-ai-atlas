@@ -1,11 +1,22 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { STARTUPS } from "../src/data.js";
+import { loadAllCities } from "../src/cities/index.js";
+import { ensureProxyAware } from "./lib/net.mjs";
+
+ensureProxyAware();
+
+const CITIES = await loadAllCities();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const outputDir = path.join(root, "public", "logos");
+
+// Logo files are keyed by startup id and shared across cities, so work the
+// union. A company listed in two cities keeps one logo.
+const filter = process.argv.find((a) => a.startsWith("--city="))?.split("=")[1];
+const sourceCities = filter ? CITIES.filter((c) => c.id === filter) : CITIES;
+const STARTUPS = [...new Map(sourceCities.flatMap((c) => c.startups).map((s) => [s.id, s])).values()];
 
 const SIMPLE_ICON_CANDIDATES = new Map([
   ["Character.ai", ["characterai"]],
@@ -19,6 +30,25 @@ const SIMPLE_ICON_CANDIDATES = new Map([
   ["Snowflake", ["snowflake"]],
   ["Together AI", ["together"]],
   ["Wiz", ["wiz"]],
+  // San Francisco
+  ["Anthropic", ["anthropic"]],
+  ["Databricks", ["databricks"]],
+  ["Descript", ["descript"]],
+  ["ElevenLabs", ["elevenlabs"]],
+  ["Figma", ["figma"]],
+  ["LangChain", ["langchain"]],
+  ["Linear", ["linear"]],
+  ["Mistral AI", ["mistralai"]],
+  ["Notion", ["notion"]],
+  ["Ollama", ["ollama"]],
+  ["OpenAI", ["openai"]],
+  ["Perplexity", ["perplexity"]],
+  ["Replicate", ["replicate"]],
+  ["Retool", ["retool"]],
+  ["Sourcegraph", ["sourcegraph"]],
+  ["Suno", ["suno"]],
+  ["Vercel", ["vercel"]],
+  ["Weights & Biases", ["weightsandbiases"]],
 ]);
 
 const WEBSITE_OVERRIDES = new Map([
@@ -30,6 +60,12 @@ const WEBSITE_OVERRIDES = new Map([
 ]);
 
 const DIRECT_LOGO_ASSETS = new Map([
+  // These four have no Simple Icon and serve no discoverable site icon.
+  // simpleicons.org has dropped the OpenAI mark (404); jsdelivr still serves it.
+  ["OpenAI", "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openai.svg"],
+  ["Descript", "https://www.google.com/s2/favicons?domain=descript.com&sz=128"],
+  ["fal", "https://www.google.com/s2/favicons?domain=fal.ai&sz=128"],
+  ["Gamma", "https://www.google.com/s2/favicons?domain=gamma.app&sz=128"],
   ["Diplo AI", "https://www.google.com/s2/favicons?domain=diplo.ai&sz=128"],
   ["Princeton", "https://www.google.com/s2/favicons?domain=princeton.edu&sz=128"],
   ["Ramp", "https://ramp.com/favicon.ico"],
