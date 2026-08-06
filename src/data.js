@@ -12,7 +12,7 @@ export const AREAS = [
     shortLabel: "Whole Board",
     focus: { lat: 40.7278, lng: -73.9955, distance: 88, height: 62, rotation: 0.64 },
     description:
-      "48 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
+      "49 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
   },
   {
     id: "midtown",
@@ -97,6 +97,7 @@ export const STARTUPS = [
   { id: "3789f8f2", name: "Hebbia", lat: 40.7207237, lng: -74.0010337, area: "soho", stage: "Early-Stage", sector: "Enterprise Automation", office: "HQ", website: "https://www.hebbia.ai/", source: "felt+airtable" },
   { id: "3b60f454", name: "Hugging Face", lat: 40.6960721, lng: -73.9864229, area: "brooklyn", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://huggingface.co/", source: "felt+airtable" },
   { id: "b599bee5", name: "Hume.ai", lat: 40.7383425, lng: -73.986331, area: "flatiron", stage: "Early-Stage", sector: "AI Application", office: "HQ", website: "https://www.hume.ai/", source: "felt+airtable" },
+  { id: "merge", name: "Merge", lat: 40.7393401, lng: -73.9893929, area: "flatiron", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: "Satellite Office", website: "https://www.merge.dev/", source: "user", address: "902 Broadway, New York, NY 10010" },
   { id: "19c795fd", name: "Modal", lat: 40.7201832, lng: -73.997414, area: "soho", stage: "Early-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://modal.com", source: "felt+airtable" },
   { id: "3aed3995", name: "Nomic", lat: 40.7338522, lng: -73.988917, area: "flatiron", stage: null, sector: "Mapped startup", office: null, website: null, source: "felt" },
   { id: "90fc53b8", name: "Norm AI", lat: 40.7060838, lng: -74.0110631, area: "fidi", stage: "Early-Stage", sector: "Legal", office: "HQ", website: "https://www.norm.ai/", source: "felt+airtable" },
@@ -150,6 +151,7 @@ export const COMPANY_INFO = {
   "3789f8f2": { blurb: "AI that reads and answers questions across huge document sets.", loc: "Broadway · SoHo" },
   "3b60f454": { blurb: "The open-source hub for AI models, datasets, and demos.", loc: "Downtown Brooklyn" },
   b599bee5: { blurb: "Emotionally intelligent voice AI grounded in expression science.", loc: "Gramercy Park" },
+  merge: { blurb: "The connectivity layer for AI, connecting products and agents across APIs, tools, and LLMs.", loc: "Broadway · Flatiron" },
   "19c795fd": { blurb: "Serverless cloud for running AI, ML, and data workloads.", loc: "Centre Market Pl · Nolita" },
   "3aed3995": { blurb: "Tools to explore, visualize, and structure massive AI datasets.", loc: "E 14th St · Union Square" },
   "90fc53b8": { blurb: "AI agents that automate regulatory compliance.", loc: "Broad St · FiDi" },
