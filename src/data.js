@@ -12,7 +12,7 @@ export const AREAS = [
     shortLabel: "Whole Board",
     focus: { lat: 40.7278, lng: -73.9955, distance: 88, height: 62, rotation: 0.64 },
     description:
-      "48 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
+      "49 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
   },
   {
     id: "midtown",
@@ -118,6 +118,7 @@ export const STARTUPS = [
   { id: "e25f0e91", name: "Stainless API", lat: 40.6960712, lng: -73.983292, area: "brooklyn", stage: "Early-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://www.stainlessapi.com", source: "felt+airtable" },
   { id: "c3a4e9d6", name: "Summer Health", lat: 40.7386876, lng: -73.9889957, area: "flatiron", stage: "Early-Stage", sector: "Healthcare", office: "HQ", website: "https://summerhealth.com/", source: "felt+airtable" },
   { id: "d05707e8", name: "Tennr", lat: 40.7297238, lng: -73.9900514, area: "flatiron", stage: "Early-Stage", sector: "Healthcare", office: "HQ", website: "https://www.tennr.com/", source: "felt+airtable" },
+  { id: "thinkfraction", name: "ThinkFraction", lat: 40.7520, lng: -74.0045, area: "west-side", stage: "Early-Stage", sector: "Agentic AI Studio", office: null, website: "https://thinkfraction.xyz/", source: "user" },
   { id: "together-ai", name: "Together AI", lat: 40.754588212187, lng: -73.971575291769, area: "midtown", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: "Satellite Office", website: "https://www.together.ai/", source: "user", address: "777 3RD AVE, NEW YORK, NY, 10017" },
   { id: "vast-data", name: "VAST Data", lat: 40.7534246, lng: -73.9910433, area: "midtown", stage: "Late-Stage", sector: "AI/Data Infrastructure", office: null, website: "https://www.vastdata.com/", source: "company", address: "240 West 37th Street, New York, NY 10018" },
   { id: "f6c37c10", name: "Vic.ai", lat: 40.7553967, lng: -73.97223, area: "midtown", stage: "Early-Stage", sector: "Financial Services", office: "HQ", website: "https://www.vic.ai/", source: "felt+airtable" },
@@ -171,6 +172,7 @@ export const COMPANY_INFO = {
   e25f0e91: { blurb: "Generates polished, type-safe SDKs from any API spec.", loc: "Brooklyn Navy Yard" },
   c3a4e9d6: { blurb: "Pediatric telehealth with AI-assisted visit notes.", loc: "E 20th St · Flatiron" },
   d05707e8: { blurb: "AI that automates healthcare referrals and patient intake.", loc: "Astor Pl · NoHo" },
+  thinkfraction: { blurb: "Deployment studio that diagnoses and fixes operational workflow leaks in owner-operated service businesses.", loc: "West Chelsea · High Line" },
   "together-ai": { blurb: "Cloud platform to train, fine-tune, and run open-source AI models.", loc: "3rd Ave · Midtown East" },
   "vast-data": { blurb: "Data and compute infrastructure for training and running AI at scale.", loc: "W 37th St · Garment District" },
   f6c37c10: { blurb: "Autonomous accounting and accounts-payable automation.", loc: "E 49th St · Midtown East" },
