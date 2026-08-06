@@ -1,26 +1,30 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { AREAS, CONTEXT_POINTS, COMPANY_INFO, DATA_SOURCES, STARTUPS } from "./data.js";
-import {
-  MANHATTAN,
-  BROOKLYN_QUEENS,
-  ROOSEVELT_ISLAND,
-  JERSEY,
-  HARBOR_ISLANDS,
-  CENTRAL_PARK,
-  CENTRAL_PARK_FEATURES,
-  PARKS,
-  DISTRICTS,
-  SUBWAY_LINES,
-  LANDMARKS,
-  BRIDGES,
-  pointInPoly,
-  inEllipse,
-} from "./geo.js";
+import { CITY_MANIFEST, DEFAULT_CITY_ID, loadCity } from "./cities/index.js";
+import { pointInPoly, inEllipse } from "./geo-utils.js";
 
-const CENTER = { lat: 40.7294, lng: -73.9957 };
-const SCALE = { lat: 1180, lng: 900 };
+// =================== Active city ===================
+// One city per page load. Switching cities navigates and reloads rather than
+// tearing the scene down, so everything below can stay a plain binding — and
+// only this city's geometry is ever downloaded.
+
+function cityIdFromHash() {
+  const match = (location.hash || "").match(/^#\/city\/([\w-]+)/);
+  return match ? match[1] : DEFAULT_CITY_ID;
+}
+
+const city = await loadCity(cityIdFromHash());
+const AREAS = city.areas;
+const STARTUPS = city.startups;
+const COMPANY_INFO = city.companyInfo;
+const CONTEXT_POINTS = city.contextPoints;
+const GEO = city.geo;
+
+const CENTER = city.center;
+const SCALE = city.scale;
 const AREA_BY_ID = Object.fromEntries(AREAS.map((area) => [area.id, area]));
+
+document.title = CITY_MANIFEST.length > 1 ? `${city.name} — AI Atlas` : "AI Atlas";
 
 const state = {
   activeAreaId: "all",
@@ -66,7 +70,7 @@ function makeSkyTexture() {
 
 const scene = new THREE.Scene();
 scene.background = makeSkyTexture();
-scene.fog = new THREE.FogExp2(HORIZON, 0.0052);
+scene.fog = new THREE.FogExp2(HORIZON, city.camera.fogDensity);
 
 // Phones get a lighter GPU budget: capped pixel ratio and a smaller shadow map.
 const smallScreen = window.matchMedia("(max-width: 54rem)").matches;
@@ -84,8 +88,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
-controls.minDistance = 18;
-controls.maxDistance = 140;
+controls.minDistance = city.camera.minDistance;
+controls.maxDistance = city.camera.maxDistance;
 controls.maxPolarAngle = Math.PI * 0.47;
 controls.screenSpacePanning = false;
 
@@ -550,7 +554,7 @@ function scatterTreesInPoly(poly, count, random, opts = {}) {
     const lat = minLat + random() * (maxLat - minLat);
     const lng = minLng + random() * (maxLng - minLng);
     if (!pointInPoly(lat, lng, poly)) continue;
-    if (opts.avoidWater && CENTRAL_PARK_FEATURES.some((f) => f.kind === "water" && inEllipse(lat, lng, f))) continue;
+    if (opts.avoidWater && (GEO.bigParkFeatures ?? []).some((f) => f.kind === "water" && inEllipse(lat, lng, f))) continue;
     addTree(lat, lng, random, opts);
     placed += 1;
   }
@@ -560,11 +564,7 @@ function scatterTreesInPoly(poly, count, random, opts = {}) {
 // Street-tree rows along the avenues New Yorkers would expect them:
 // the Park Avenue median plus the Hudson and East River esplanades.
 function createStreetTrees() {
-  const rows = [
-    { from: [40.7365, -73.9885], to: [40.7825, -73.955], step: 0.8 },
-    { from: [40.7205, -74.0125], to: [40.7575, -73.9985], step: 0.95 },
-    { from: [40.708, -73.996], to: [40.7345, -73.9728], step: 1.05 },
-  ];
+  const rows = city.ambient.treeRows ?? [];
   const random = seededRandom(9001);
   rows.forEach((row) => {
     const a = project(row.from[0], row.from[1]);
@@ -574,8 +574,8 @@ function createStreetTrees() {
       const t = i / count;
       const lat = row.from[0] + (row.to[0] - row.from[0]) * t;
       const lng = row.from[1] + (row.to[1] - row.from[1]) * t;
-      if (!pointInPoly(lat, lng, MANHATTAN)) continue;
-      if (pointInPoly(lat, lng, CENTRAL_PARK)) continue;
+      if (!pointInPoly(lat, lng, GEO.land)) continue;
+      if (GEO.bigPark && pointInPoly(lat, lng, GEO.bigPark)) continue;
       const p = project(lat, lng);
       treeBuffer.push({
         x: p.x + (random() - 0.5) * 0.16,
@@ -658,81 +658,15 @@ function createHill(lat, lng, radius, height, tint = 0) {
   scene.add(mesh);
 }
 
-function createCentralParkDetails() {
-  const random = seededRandom(930);
-
-  // Green base.
-  makeShape(CENTRAL_PARK, materials.park, 0.045, true);
-
-  // Rolling hills (Great Hill, the West Side rise, Cedar Hill, etc.).
-  const hills = [
-    [40.7965, -73.9628, 3.2, 0.5, 0.04],
-    [40.7745, -73.9745, 2.8, 0.42, 0.0],
-    [40.7805, -73.9705, 3.0, 0.46, -0.03],
-    [40.7715, -73.9685, 2.4, 0.36, 0.05],
-    [40.7885, -73.9605, 2.6, 0.4, 0.02],
-    [40.7672, -73.9762, 2.2, 0.34, 0.03],
-  ];
-  hills.forEach(([lat, lng, r, h, tint]) => createHill(lat, lng, r, h, tint));
-
-  // Lawns + water sit on the flat ground (the hills are placed away from them).
-  CENTRAL_PARK_FEATURES.forEach((f) => {
-    const coords = ellipseCoords(f.lat, f.lng, f.rLat, f.rLng, 30);
-    if (f.kind === "water") makeShape(coords, materials.pond, 0.085, true);
-    else makeShape(coords, materials.parkLight, 0.07, true);
-  });
-
-  // Park drive loop.
-  makeTube(
-    [
-      [40.7672, -73.9745],
-      [40.772, -73.971],
-      [40.7785, -73.9665],
-      [40.7855, -73.9615],
-      [40.7945, -73.9555],
-      [40.7985, -73.9605],
-      [40.79, -73.967],
-      [40.781, -73.9735],
-      [40.7725, -73.9788],
-      [40.7685, -73.9805],
-      [40.7672, -73.9745],
-    ],
-    0.02,
-    materials.path,
-    0.06,
-    90,
-  );
-
-  // The Mall: a straight allée lined with two rows of big trees.
-  const mallA = [40.7685, -73.9735];
-  const mallB = [40.7725, -73.9715];
-  for (let i = 0; i <= 9; i += 1) {
-    const t = i / 9;
-    const lat = mallA[0] + (mallB[0] - mallA[0]) * t;
-    const lng = mallA[1] + (mallB[1] - mallA[1]) * t;
-    addTree(lat - 0.0004, lng - 0.00055, random, { type: "round", scaleBase: 1.25 });
-    addTree(lat + 0.0004, lng + 0.00055, random, { type: "round", scaleBase: 1.25 });
-  }
-
-  // General canopy across the park (avoid the water bodies).
-  scatterTreesInPoly(CENTRAL_PARK, 360, random, { avoidWater: true });
-
-  // Dense woodland in the Ramble and North Woods.
-  const ramble = ellipseCoords(40.7775, -73.9695, 0.0026, 0.0032, 12);
-  scatterTreesInPoly(ramble, 90, random, { type: "round", scaleBase: 1.1 });
-  const northWoods = ellipseCoords(40.7965, -73.9585, 0.003, 0.0028, 12);
-  scatterTreesInPoly(northWoods, 80, random, { type: "conifer", scaleBase: 1.15 });
-}
-
 function createParks() {
-  PARKS.forEach((coords) => makeShape(coords, materials.park, 0.05, true));
+  GEO.parks.forEach((coords) => makeShape(coords, materials.park, 0.05, true));
 
   const random = seededRandom(311);
-  PARKS.filter((p) => p.length >= 4).forEach((poly) => scatterTreesInPoly(poly, 16, random));
+  GEO.parks.filter((p) => p.length >= 4).forEach((poly) => scatterTreesInPoly(poly, 16, random));
 }
 
 function createHarborIslands() {
-  HARBOR_ISLANDS.forEach((isle) => {
+  (GEO.islands ?? []).forEach((isle) => {
     const coords = ellipseCoords(isle.lat, isle.lng, isle.rLat, isle.rLng, 24);
     makeShape(coords, materials.landAlt, 0.01, true);
     createShoreline(coords);
@@ -743,7 +677,8 @@ function createHarborIslands() {
 }
 
 function createBaseMap() {
-  const waterGeo = new THREE.PlaneGeometry(260, 230, 80, 72);
+  const { width, depth } = city.camera.water;
+  const waterGeo = new THREE.PlaneGeometry(width, depth, 80, 72);
   const water = new THREE.Mesh(waterGeo, materials.water);
   water.rotation.x = -Math.PI / 2;
   water.position.y = -0.18;
@@ -752,70 +687,73 @@ function createBaseMap() {
   scene.add(water);
   waterSurfaces.push(water);
 
-  makeShape(MANHATTAN, materials.asphalt, 0, true);
-  createShoreline(MANHATTAN);
-
-  makeShape(BROOKLYN_QUEENS, materials.landAlt, 0, true);
-  createShoreline(BROOKLYN_QUEENS);
-
-  makeShape(JERSEY, materials.land, 0, true);
-  createShoreline(JERSEY);
-
-  makeShape(ROOSEVELT_ISLAND, materials.landAlt, 0.01, true);
-  createShoreline(ROOSEVELT_ISLAND);
+  GEO.landmasses.forEach((mass) => {
+    makeShape(mass.coords, materials[mass.material], mass.y ?? 0, true);
+    createShoreline(mass.coords);
+  });
 
   createHarborIslands();
   createParks();
-  createCentralParkDetails();
+  // Signature park geometry (Central Park's hills, lakes and the Mall) is
+  // hand-built per city; most cities won't have one.
+  city.createBigParkDetails?.(cityKit);
 
-  // Hudson River piers (Manhattan west side)
-  createPier(40.7228, -74.0125, 2.4, 0.5, 0.4);
-  createPier(40.7322, -74.0112, 2.4, 0.5, 0.4);
-  createPier(40.7425, -74.0098, 2.6, 0.52, 0.4);
-  // East River / Seaport piers
-  createPier(40.7055, -74.0005, 1.8, 0.42, -0.7);
-  createPier(40.7015, -73.9965, 1.8, 0.42, -0.7);
+  (city.ambient.piers ?? []).forEach((pier) => {
+    createPier(pier.lat, pier.lng, pier.width, pier.depth, pier.rotation);
+  });
 }
 
-// Manhattan's grid is rotated ~29° E of N. Build it in a local frame and clip
-// every segment to the island so streets never run out over the water.
-const GRID = (() => {
-  const theta = (29 * Math.PI) / 180;
-  const k = Math.cos((40.75 * Math.PI) / 180); // lng compression
-  // unit vectors (in lat/lng degrees) for "uptown" and "crosstown-east"
-  const av = { dlat: Math.cos(theta), dlng: Math.sin(theta) / k }; // along avenues
-  const st = { dlat: Math.cos(theta + Math.PI / 2), dlng: Math.sin(theta + Math.PI / 2) / k };
-  const origin = { lat: 40.7359, lng: -73.9911 }; // Union Square
-  return { av, st, origin };
-})();
+// Lattice cities (Manhattan) place buildings and streets on a rotated grid.
+// Footprint cities (San Francisco) import real geometry instead and leave all
+// of this null.
+const GRID = city.grid
+  ? (() => {
+      const { theta, latRef, origin } = city.grid;
+      const k = Math.cos((latRef * Math.PI) / 180); // lng compression
+      // unit vectors (in lat/lng degrees) for "uptown" and "crosstown-east"
+      const av = { dlat: Math.cos(theta), dlng: Math.sin(theta) / k }; // along avenues
+      const st = { dlat: Math.cos(theta + Math.PI / 2), dlng: Math.sin(theta + Math.PI / 2) / k };
+      return { av, st, origin };
+    })()
+  : null;
 
 // Lattice spacing shared by the buildings, the sidewalk plates, and the
 // traffic network, so cars drive in the same gaps the blocks leave open.
-const CELL_U = 0.00094; // street-to-street spacing (degree units along av)
-const CELL_V = 0.0026; // avenue-to-avenue spacing (degree units along st)
-const GRID_METRICS = (() => {
-  const gridOrigin = project(GRID.origin.lat, GRID.origin.lng);
-  const uVec = project(
-    GRID.origin.lat + GRID.av.dlat * CELL_U,
-    GRID.origin.lng + GRID.av.dlng * CELL_U,
-  ).sub(gridOrigin); // short block side (street to street)
-  const vVec = project(
-    GRID.origin.lat + GRID.st.dlat * CELL_V,
-    GRID.origin.lng + GRID.st.dlng * CELL_V,
-  ).sub(gridOrigin); // long block side (avenue to avenue)
-  return {
-    uVec,
-    vVec,
-    uLen: uVec.length(),
-    vLen: vVec.length(),
-    rot: Math.atan2(uVec.x, uVec.z),
-  };
-})();
+const CELL_U = city.grid?.cellU ?? 0; // street-to-street spacing (degree units along av)
+const CELL_V = city.grid?.cellV ?? 0; // avenue-to-avenue spacing (degree units along st)
+const GRID_METRICS = GRID
+  ? (() => {
+      const gridOrigin = project(GRID.origin.lat, GRID.origin.lng);
+      const uVec = project(
+        GRID.origin.lat + GRID.av.dlat * CELL_U,
+        GRID.origin.lng + GRID.av.dlng * CELL_U,
+      ).sub(gridOrigin); // short block side (street to street)
+      const vVec = project(
+        GRID.origin.lat + GRID.st.dlat * CELL_V,
+        GRID.origin.lng + GRID.st.dlng * CELL_V,
+      ).sub(gridOrigin); // long block side (avenue to avenue)
+      return {
+        uVec,
+        vVec,
+        uLen: uVec.length(),
+        vLen: vVec.length(),
+        rot: Math.atan2(uVec.x, uVec.z),
+      };
+    })()
+  : null;
+
+// Sidewalk plate footprint, shared by the plate meshes and the pedestrians
+// that walk their perimeter. Lattice cities take it from the block lattice;
+// footprint cities cluster buildings onto a fixed 1.6-unit cell in
+// build-geo.mjs, so the plate is that cell minus a street gap.
+const PLATE = GRID_METRICS
+  ? { w: GRID_METRICS.vLen - 0.26, d: GRID_METRICS.uLen - 0.12, rot: GRID_METRICS.rot }
+  : { w: 1.34, d: 1.34, rot: 0 };
 
 function createBridgeDetails() {
   const deckHeight = 0.62;
   const towerHeight = 2.2;
-  BRIDGES.forEach((bridge) => {
+  (GEO.bridges ?? []).forEach((bridge) => {
     // Roadway deck
     const deckPts = bridge.deck.map(([lat, lng]) => project(lat, lng, deckHeight));
     makeCurveTube(deckPts, 0.07, materials.bridge, 60);
@@ -889,16 +827,16 @@ function createSubwayTrainMesh(color = 0x169b62) {
   return group;
 }
 
-// Lines that run outdoors once they leave Manhattan (the 7 over Queens, the
+// Lines that run outdoors once they leave the core (NYC's 7 over Queens, the
 // L toward Williamsburg) climb onto elevated viaducts there, so overground
 // tracks visibly weave through the cityscape.
-const ELEVATED_OUTSIDE = new Set(["7", "L"]);
+const ELEVATED_OUTSIDE = new Set(city.transitElevated ?? []);
 const VIADUCT_Y = 0.58;
 
 function trackY(line, lat, lng, baseY) {
-  const onManhattan = pointInPoly(lat, lng, MANHATTAN) || pointInPoly(lat, lng, ROOSEVELT_ISLAND);
-  if (onManhattan) return baseY;
-  const onFarBank = pointInPoly(lat, lng, BROOKLYN_QUEENS) || pointInPoly(lat, lng, JERSEY);
+  const onCore = (GEO.transitCore ?? [GEO.land]).some((poly) => pointInPoly(lat, lng, poly));
+  if (onCore) return baseY;
+  const onFarBank = (GEO.transitOuter ?? []).some((poly) => pointInPoly(lat, lng, poly));
   if (onFarBank) return ELEVATED_OUTSIDE.has(line.name) ? VIADUCT_Y : baseY;
   return -0.62; // over open water: dive into a river tunnel
 }
@@ -942,7 +880,7 @@ function createSubwayLayer() {
   const pierGeo = new THREE.CylinderGeometry(0.032, 0.05, 1, 8);
   const pierMaterial = new THREE.MeshStandardMaterial({ color: 0x4b5158, roughness: 0.7 });
 
-  SUBWAY_LINES.forEach((line, lineIndex) => {
+  (GEO.transit ?? []).forEach((line, lineIndex) => {
     const lineMaterial = new THREE.MeshStandardMaterial({
       color: line.color,
       roughness: 0.45,
@@ -998,7 +936,9 @@ function createSubwayLayer() {
     }
   });
 
-  addLandmarkLabel("Grand Central", 40.7527, -73.9772, 2.7);
+  // A label for the line's main interchange, when the city names one.
+  const hub = city.transitHub;
+  if (hub) addLandmarkLabel(hub.name, hub.lat, hub.lng, hub.y ?? 2.7);
 }
 
 function createFerryMesh(accent = 0x2e6cff) {
@@ -1025,47 +965,7 @@ function createFerryMesh(accent = 0x2e6cff) {
 }
 
 function createFerries() {
-  const routes = [
-    {
-      // East River: harbor up the channel between Manhattan and Brooklyn/Queens
-      color: 0x2e6cff,
-      path: [
-        [40.699, -74.0],
-        [40.707, -73.99],
-        [40.715, -73.979],
-        [40.724, -73.969],
-        [40.735, -73.962],
-        [40.747, -73.957],
-        [40.757, -73.951],
-      ],
-    },
-    {
-      // Hudson River: harbor up the channel between Manhattan and New Jersey
-      color: 0xffcc4d,
-      path: [
-        [40.7, -74.024],
-        [40.713, -74.02],
-        [40.727, -74.018],
-        [40.741, -74.016],
-        [40.755, -74.011],
-        [40.767, -74.005],
-      ],
-    },
-    {
-      // Harbor loop: Battery out past Liberty and Ellis Islands and back,
-      // in Staten Island Ferry orange.
-      color: 0xf25c19,
-      path: [
-        [40.7005, -74.0155],
-        [40.6965, -74.026],
-        [40.6925, -74.034],
-        [40.6905, -74.0405],
-        [40.6945, -74.0375],
-        [40.699, -74.028],
-        [40.7005, -74.0155],
-      ],
-    },
-  ];
+  const routes = city.ambient.ferryRoutes ?? [];
   routes.forEach((route, index) => {
     const points = route.path.map(([lat, lng]) => project(lat, lng, 0.1));
     const mesh = createFerryMesh(route.color);
@@ -1117,18 +1017,7 @@ function createPlaneMesh() {
 }
 
 function createPlanes() {
-  const flightPaths = [
-    [
-      [40.69, -74.075, 17],
-      [40.725, -74.02, 20],
-      [40.77, -73.94, 19],
-    ],
-    [
-      [40.805, -74.065, 24],
-      [40.755, -74.0, 22],
-      [40.71, -73.92, 20],
-    ],
-  ];
+  const flightPaths = city.ambient.flightPaths ?? [];
   flightPaths.forEach((path, index) => {
     const mesh = createPlaneMesh();
     scene.add(mesh);
@@ -1149,9 +1038,9 @@ function createPlanes() {
 const ROAD_Y = 0.055;
 
 function streetAllowed(lat, lng) {
-  if (!pointInPoly(lat, lng, MANHATTAN)) return false;
-  if (pointInPoly(lat, lng, CENTRAL_PARK)) return false;
-  for (const park of PARKS) {
+  if (!pointInPoly(lat, lng, GEO.land)) return false;
+  if (GEO.bigPark && pointInPoly(lat, lng, GEO.bigPark)) return false;
+  for (const park of GEO.parks) {
     if (pointInPoly(lat, lng, park)) return false;
   }
   return true;
@@ -1165,15 +1054,26 @@ function gridStreetPoint(u, v, y) {
 
 function createStreetNetwork() {
   const paths = [];
+
+  // Footprint cities ship a real road network; just project it.
+  if (GEO.roads) {
+    GEO.roads.forEach((line) => paths.push(line.map(([lat, lng]) => project(lat, lng, ROAD_Y))));
+    createBridgeDetails();
+    return paths;
+  }
+
   const flushRun = (run, minLength) => {
     if (run.length >= minLength) paths.push(run);
     return [];
   };
+  const [iMin, iMax] = city.grid.iRange;
+  const [jMin, jMax] = city.grid.jRange;
+  const [avMin, avMax] = city.grid.avenueRange;
 
   // Avenues: one traffic lane per lattice line, broken at parks and water.
-  for (let j = -7; j <= 8; j += 1) {
+  for (let j = avMin; j <= avMax; j += 1) {
     let run = [];
-    for (let i = -52; i <= 98; i += 1) {
+    for (let i = iMin; i <= iMax; i += 1) {
       const { lat, lng, point } = gridStreetPoint(i * CELL_U, j * CELL_V, ROAD_Y);
       if (streetAllowed(lat, lng)) run.push(point);
       else run = flushRun(run, 8);
@@ -1182,9 +1082,9 @@ function createStreetNetwork() {
   }
 
   // Major crosstown streets: Canal, Houston, 14th, 23rd, 34th, 42nd, 57th.
-  for (const i of [-21, -12, 0, 9, 20, 28, 43]) {
+  for (const i of city.grid.crosstownRows) {
     let run = [];
-    for (let j = -8; j <= 8; j += 0.5) {
+    for (let j = jMin; j <= jMax; j += 0.5) {
       const { lat, lng, point } = gridStreetPoint(i * CELL_U, j * CELL_V, ROAD_Y);
       if (streetAllowed(lat, lng)) run.push(point);
       else run = flushRun(run, 5);
@@ -1193,19 +1093,17 @@ function createStreetNetwork() {
   }
 
   // Shoreline highways: West Side Highway + FDR Drive, inset from the water.
-  const westShore = MANHATTAN.slice(0, 13)
-    .map(([lat, lng]) => [lat, lng + 0.0016])
-    .filter(([lat, lng]) => pointInPoly(lat, lng, MANHATTAN))
-    .map(([lat, lng]) => project(lat, lng, ROAD_Y));
-  if (westShore.length >= 4) paths.push(westShore);
-  const eastShore = MANHATTAN.slice(13)
-    .map(([lat, lng]) => [lat, lng - 0.0016])
-    .filter(([lat, lng]) => pointInPoly(lat, lng, MANHATTAN))
-    .map(([lat, lng]) => project(lat, lng, ROAD_Y));
-  if (eastShore.length >= 4) paths.push(eastShore);
+  (city.grid.shoreRoads ?? []).forEach(({ slice, offsetLng }) => {
+    const shore = GEO.land
+      .slice(...slice)
+      .map(([lat, lng]) => [lat, lng + offsetLng])
+      .filter(([lat, lng]) => pointInPoly(lat, lng, GEO.land))
+      .map(([lat, lng]) => project(lat, lng, ROAD_Y));
+    if (shore.length >= 4) paths.push(shore);
+  });
 
   // Bridge decks carry their own traffic, up at deck height.
-  BRIDGES.forEach((bridge) => {
+  (GEO.bridges ?? []).forEach((bridge) => {
     paths.push(bridge.deck.map(([lat, lng]) => project(lat, lng, 0.72)));
   });
 
@@ -1215,15 +1113,11 @@ function createStreetNetwork() {
 
 function buildingAllowed(lat, lng) {
   // Must be on a real landmass...
-  const onLand =
-    pointInPoly(lat, lng, MANHATTAN) ||
-    pointInPoly(lat, lng, BROOKLYN_QUEENS) ||
-    pointInPoly(lat, lng, JERSEY) ||
-    pointInPoly(lat, lng, ROOSEVELT_ISLAND);
+  const onLand = GEO.buildable.some((poly) => pointInPoly(lat, lng, poly));
   if (!onLand) return false;
-  // ...and not inside a park or Central Park.
-  if (pointInPoly(lat, lng, CENTRAL_PARK)) return false;
-  for (const park of PARKS) {
+  // ...and not inside a park.
+  if (GEO.bigPark && pointInPoly(lat, lng, GEO.bigPark)) return false;
+  for (const park of GEO.parks) {
     if (pointInPoly(lat, lng, park)) return false;
   }
   return true;
@@ -1246,21 +1140,19 @@ function bakeBaseShade(geometry, floor = 0.78) {
   return geometry;
 }
 
-function createBuildings() {
-  const random = seededRandom(43);
-  const instances = [];
-
-  // Manhattan buildings live INSIDE street blocks, aligned to the same
-  // lattice the visible grid draws. Shared block placement is what makes the
-  // city read as a real city instead of scattered boxes.
+// Lattice cities generate their blocks: buildings live INSIDE street blocks,
+// aligned to the same lattice the visible grid draws. Shared block placement
+// is what makes the city read as a real city instead of scattered boxes.
+function latticeBuildings(instances, blockPlates, random) {
   const { uVec, vVec, uLen, vLen, rot: gridRot } = GRID_METRICS;
+  const [iMin, iMax] = city.grid.iRange;
+  const [jMin, jMax] = city.grid.jRange;
 
   const filledCells = new Set();
-  const blockPlates = []; // one raised sidewalk plate per city block
-  DISTRICTS.filter((district) => !district.faded).forEach((district) => {
+  GEO.districts.filter((district) => !district.faded).forEach((district) => {
     const [latMin, latMax, lngMin, lngMax] = district.bbox;
-    for (let i = -52; i <= 98; i += 1) {
-      for (let j = -8; j <= 8; j += 1) {
+    for (let i = iMin; i <= iMax; i += 1) {
+      for (let j = jMin; j <= jMax; j += 1) {
         const u = (i + 0.5) * CELL_U;
         const v = (j + 0.5) * CELL_V;
         const lat = GRID.origin.lat + GRID.av.dlat * u + GRID.st.dlat * v;
@@ -1297,13 +1189,10 @@ function createBuildings() {
 
   // Outer boroughs keep loose placement, but each borough shares one street
   // orientation (with a whisper of jitter) and buildings never interpenetrate.
-  const boroughRot = {
-    "Brooklyn-N": gridRot + 0.9,
-    "Brooklyn-S": gridRot + 0.55,
-    "LIC/Queens": gridRot + 0.2,
-    JerseyCity: gridRot + 0.12,
-  };
-  DISTRICTS.filter((district) => district.faded).forEach((district) => {
+  const boroughRot = Object.fromEntries(
+    Object.entries(city.grid.outerRotations ?? {}).map(([name, offset]) => [name, gridRot + offset]),
+  );
+  GEO.districts.filter((district) => district.faded).forEach((district) => {
     const [latMin, latMax, lngMin, lngMax] = district.bbox;
     const placedSpots = [];
     let count = 0;
@@ -1342,8 +1231,24 @@ function createBuildings() {
       count += 1;
     }
   });
+}
 
-  // Faded outer-borough buildings render as flat, pale "ghost" blocks.
+function createBuildings() {
+  const random = seededRandom(43);
+  const instances = [];
+  const blockPlates = []; // one raised sidewalk plate per city block
+
+  if (GEO.footprints) {
+    // Footprint cities import real oriented boxes straight from OSM; only the
+    // per-instance colour jitter gets generated here.
+    GEO.footprints.forEach((box) => instances.push({ ...box, shade: random(), roof: random() }));
+    const packed = GEO.blockPlates ?? [];
+    for (let i = 0; i < packed.length; i += 2) blockPlates.push({ x: packed[i], z: packed[i + 1] });
+  } else {
+    latticeBuildings(instances, blockPlates, random);
+  }
+
+  // Faded outer buildings render as flat, pale "ghost" blocks.
   const fadedBoxes = instances.filter((b) => b.faded);
   const solidBoxes = instances.filter((b) => !b.faded);
   if (fadedBoxes.length) {
@@ -1559,8 +1464,8 @@ function createBuildings() {
     const plateColor = new THREE.Color();
     blockPlates.forEach((plate, i) => {
       pos.set(plate.x, 0, plate.z);
-      quat.setFromAxisAngle(UP, gridRot);
-      scale.set(vLen - 0.26, 1, uLen - 0.12);
+      quat.setFromAxisAngle(UP, PLATE.rot);
+      scale.set(PLATE.w, 1, PLATE.d);
       matrix.compose(pos, quat, scale);
       plateMesh.setMatrixAt(i, matrix);
       plateColor.setHSL(0.09, 0.06, 0.8 + ((i * 2654435761) % 100) / 100 * 0.05);
@@ -1629,6 +1534,36 @@ function createBuildings() {
 }
 
 // Helper: a tapered tower with optional setbacks. Returns top Y.
+// Everything a city's hand-built geometry needs from the scene. Passed to the
+// per-city landmark and park hooks so those modules stay pure data + geometry.
+function buildCityKit() {
+  return {
+    THREE,
+    scene,
+    UP,
+    project,
+    materials,
+    colors,
+    makeShape,
+    makeTube,
+    makeCurveTube,
+    createShoreline,
+    createPier,
+    createBlockAt,
+    createHill,
+    ellipseCoords,
+    addTree,
+    scatterTreesInPoly,
+    addLandmarkLabel,
+    stackTower,
+    seededRandom,
+  };
+}
+
+// Safe as a module-level const: every consumer runs from init(), which fires
+// after this module finishes evaluating.
+const cityKit = buildCityKit();
+
 function stackTower(lat, lng, levels, material, rotation = 0) {
   const p = project(lat, lng);
   let y = 0;
@@ -1644,234 +1579,6 @@ function stackTower(lat, lng, levels, material, rotation = 0) {
   return { p, top: y };
 }
 
-function createLandmarks() {
-  const stone = materials.landmark;
-  const glass = materials.glass;
-
-  // --- Empire State Building: stepped Art-Deco setbacks + antenna ---
-  {
-    const { p, top } = stackTower(LANDMARKS.empireState.lat, LANDMARKS.empireState.lng, [
-      { w: 1.05, h: 0.5, d: 1.25 },
-      { w: 0.8, h: 2.4, d: 0.95 },
-      { w: 0.5, h: 1.1, d: 0.62 },
-    ], stone, 0.5);
-    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.07, 0.9, 8), materials.window);
-    antenna.position.set(p.x, top + 0.45, p.z);
-    antenna.castShadow = true;
-    scene.add(antenna);
-    addLandmarkLabel("Empire State", LANDMARKS.empireState.lat, LANDMARKS.empireState.lng, top + 1.1);
-  }
-
-  // --- Chrysler Building: tapered shaft + iconic stepped crown ---
-  {
-    const cp = project(LANDMARKS.chrysler.lat, LANDMARKS.chrysler.lng);
-    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.62, 3.0, 0.62), stone);
-    shaft.position.set(cp.x, 1.5, cp.z);
-    shaft.rotation.y = 0.5;
-    shaft.castShadow = true;
-    scene.add(shaft);
-    // Crown: stack of shrinking discs, then spire
-    let cy = 3.0;
-    for (let i = 0; i < 4; i += 1) {
-      const r = 0.34 - i * 0.07;
-      const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.06, 0.26, 16), materials.copper);
-      disc.position.set(cp.x, cy + 0.13, cp.z);
-      disc.castShadow = true;
-      scene.add(disc);
-      cy += 0.26;
-    }
-    const spire = new THREE.Mesh(new THREE.ConeGeometry(0.07, 1.1, 10), materials.window);
-    spire.position.set(cp.x, cy + 0.55, cp.z);
-    spire.castShadow = true;
-    scene.add(spire);
-    addLandmarkLabel("Chrysler", LANDMARKS.chrysler.lat, LANDMARKS.chrysler.lng, cy + 1.2);
-  }
-
-  // --- One World Trade Center: tapered glass obelisk + spire ---
-  {
-    const wp = project(LANDMARKS.oneWTC.lat, LANDMARKS.oneWTC.lng);
-    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.62, 4.6, 4), glass);
-    tower.position.set(wp.x, 2.3, wp.z);
-    tower.rotation.y = Math.PI / 4;
-    tower.castShadow = true;
-    scene.add(tower);
-    const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.05, 1.5, 8), materials.window);
-    spire.position.set(wp.x, 4.6 + 0.75, wp.z);
-    spire.castShadow = true;
-    scene.add(spire);
-    addLandmarkLabel("One WTC", LANDMARKS.oneWTC.lat, LANDMARKS.oneWTC.lng, 6.6);
-  }
-
-  // --- Flatiron Building: triangular wedge ---
-  {
-    const fp = project(LANDMARKS.flatiron.lat, LANDMARKS.flatiron.lng);
-    const tri = new THREE.Shape();
-    tri.moveTo(0, 0.9);
-    tri.lineTo(-0.4, -0.5);
-    tri.lineTo(0.4, -0.5);
-    tri.closePath();
-    const geo = new THREE.ExtrudeGeometry(tri, { depth: 1.7, bevelEnabled: false });
-    geo.rotateX(-Math.PI / 2);
-    const mesh = new THREE.Mesh(geo, stone);
-    mesh.position.set(fp.x, 0, fp.z);
-    mesh.rotation.y = 0.5;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-    addLandmarkLabel("Flatiron", LANDMARKS.flatiron.lat, LANDMARKS.flatiron.lng, 2.1);
-  }
-
-  // --- Grand Central + adjacent MetLife slab ---
-  {
-    createBlockAt(LANDMARKS.grandCentral.lat, LANDMARKS.grandCentral.lng, 1.7, 1.0, 0.7, stone, 0.5);
-    const gp = project(LANDMARKS.grandCentral.lat, LANDMARKS.grandCentral.lng);
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), stone);
-    dome.position.set(gp.x, 0.7, gp.z);
-    dome.castShadow = true;
-    scene.add(dome);
-    createBlockAt(LANDMARKS.metLife.lat, LANDMARKS.metLife.lng, 1.4, 0.6, 3.0, materials.building, 0.5);
-    addLandmarkLabel("Grand Central", LANDMARKS.grandCentral.lat, LANDMARKS.grandCentral.lng, 1.4);
-  }
-
-  // --- Rockefeller Center (slab) + Times Square sliver ---
-  createBlockAt(LANDMARKS.rockefeller.lat, LANDMARKS.rockefeller.lng, 0.7, 1.5, 2.9, materials.building, 0.5);
-  addLandmarkLabel("Rockefeller", LANDMARKS.rockefeller.lat, LANDMARKS.rockefeller.lng, 3.2);
-  addLandmarkLabel("Times Sq", LANDMARKS.timesSquare.lat, LANDMARKS.timesSquare.lng, 1.4);
-
-  // --- Madison Square Garden (round drum) ---
-  {
-    const mp = project(LANDMARKS.madisonSquareGarden.lat, LANDMARKS.madisonSquareGarden.lng);
-    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.7, 24), stone);
-    drum.position.set(mp.x, 0.35, mp.z);
-    drum.castShadow = true;
-    scene.add(drum);
-  }
-
-  // --- The Vessel (Hudson Yards): copper honeycomb cone ---
-  {
-    const vp = project(LANDMARKS.vessel.lat, LANDMARKS.vessel.lng);
-    const vessel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.28, 0.9, 12, 1, true), materials.copper);
-    vessel.position.set(vp.x, 0.45, vp.z);
-    vessel.castShadow = true;
-    scene.add(vessel);
-    createBlockAt(LANDMARKS.hudsonYards.lat, LANDMARKS.hudsonYards.lng, 0.7, 0.7, 2.6, glass, 0.5);
-    addLandmarkLabel("Hudson Yards", LANDMARKS.hudsonYards.lat, LANDMARKS.hudsonYards.lng, 3.0);
-  }
-
-  // --- UN Secretariat (thin glass slab) ---
-  {
-    const up = project(LANDMARKS.un.lat, LANDMARKS.un.lng);
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.4, 0.32), glass);
-    slab.position.set(up.x, 1.2, up.z);
-    slab.castShadow = true;
-    scene.add(slab);
-    addLandmarkLabel("UN", LANDMARKS.un.lat, LANDMARKS.un.lng, 2.8);
-  }
-
-  // --- NY Public Library + Bryant Park edge ---
-  createBlockAt(LANDMARKS.bryantLibrary.lat, LANDMARKS.bryantLibrary.lng, 1.2, 0.9, 0.55, stone, 0.5);
-
-  // --- Statue of Liberty ---
-  {
-    const sp = project(LANDMARKS.statueLiberty.lat, LANDMARKS.statueLiberty.lng);
-    const star = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.4, 0.4, 8), stone);
-    star.position.set(sp.x, 0.2, sp.z);
-    star.castShadow = true;
-    scene.add(star);
-    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), stone);
-    pedestal.position.set(sp.x, 0.75, sp.z);
-    pedestal.castShadow = true;
-    scene.add(pedestal);
-    const robe = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.2, 0.85, 8), materials.copper);
-    robe.position.set(sp.x, 1.52, sp.z);
-    robe.castShadow = true;
-    scene.add(robe);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), materials.copper);
-    head.position.set(sp.x, 2.02, sp.z);
-    scene.add(head);
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.55, 6), materials.copper);
-    arm.position.set(sp.x + 0.16, 1.95, sp.z);
-    arm.rotation.z = -0.5;
-    scene.add(arm);
-    const torchMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffd671,
-      emissive: new THREE.Color(0xffb020).multiplyScalar(0.55),
-      roughness: 0.3,
-    });
-    const torch = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 8), torchMaterial);
-    torch.position.set(sp.x + 0.3, 2.25, sp.z);
-    scene.add(torch);
-    // Crown: a ring of seven copper spikes.
-    for (let i = 0; i < 7; i += 1) {
-      const angle = -Math.PI * 0.75 + (i / 6) * Math.PI * 1.5;
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.014, 0.11, 5), materials.copper);
-      spike.position.set(sp.x + Math.cos(angle) * 0.08, 2.12, sp.z + Math.sin(angle) * 0.08);
-      spike.rotation.z = Math.cos(angle) * 0.55;
-      spike.rotation.x = -Math.sin(angle) * 0.55;
-      scene.add(spike);
-    }
-    addLandmarkLabel("Statue of Liberty", LANDMARKS.statueLiberty.lat, LANDMARKS.statueLiberty.lng, 2.6);
-  }
-
-  // --- Washington Square Arch ---
-  {
-    const ap = project(40.731, -73.9973);
-    for (const dx of [-0.14, 0.14]) {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.34, 0.09), stone);
-      leg.position.set(ap.x + dx, 0.17, ap.z);
-      leg.castShadow = true;
-      scene.add(leg);
-    }
-    const lintel = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.13, 0.12), stone);
-    lintel.position.set(ap.x, 0.4, ap.z);
-    lintel.castShadow = true;
-    scene.add(lintel);
-  }
-
-  // --- Guggenheim: the inverted-ziggurat rotunda ---
-  {
-    const gp = project(40.783, -73.959);
-    let gy = 0;
-    for (let i = 0; i < 4; i += 1) {
-      const r = 0.15 + i * 0.045;
-      const drum = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.93, 0.13, 20), stone);
-      drum.position.set(gp.x, gy + 0.065, gp.z);
-      drum.castShadow = true;
-      scene.add(drum);
-      gy += 0.13;
-    }
-    addLandmarkLabel("Guggenheim", 40.783, -73.959, 1.0);
-  }
-
-  // --- St. Patrick's Cathedral: nave + twin spires facing Fifth Avenue ---
-  {
-    const cp2 = project(40.7585, -73.976);
-    const nave = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.3, 0.68), stone);
-    nave.position.set(cp2.x, 0.15, cp2.z);
-    nave.rotation.y = 0.5;
-    nave.castShadow = true;
-    scene.add(nave);
-    for (const off of [-0.11, 0.11]) {
-      const anchor = new THREE.Vector3(off, 0, 0.3).applyAxisAngle(UP, 0.5);
-      const spire = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.5, 6), stone);
-      spire.position.set(cp2.x + anchor.x, 0.52, cp2.z + anchor.z);
-      spire.castShadow = true;
-      scene.add(spire);
-    }
-    addLandmarkLabel("St. Patrick's", 40.7585, -73.976, 1.1);
-  }
-
-  // --- Oculus (WTC transit hub): ribbed white ellipsoid ---
-  {
-    const op = project(LANDMARKS.oculus.lat, LANDMARKS.oculus.lng);
-    const oculus = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 8), stone);
-    oculus.scale.set(1.4, 0.34, 0.7);
-    oculus.position.set(op.x, 0.18, op.z);
-    oculus.rotation.y = 0.5;
-    oculus.castShadow = true;
-    scene.add(oculus);
-  }
-}
 
 function createMarker(item) {
   const color = stageColor(item.stage);
@@ -2275,11 +1982,7 @@ function createBirds() {
   geo.setAttribute("position", new THREE.BufferAttribute(wing, 3));
   const material = new THREE.MeshBasicMaterial({ color: 0x2b3038, side: THREE.DoubleSide });
 
-  const flocks = [
-    { lat: 40.781, lng: -73.9665, alt: 6.4, radius: 4.6, count: 5 }, // Central Park
-    { lat: 40.696, lng: -74.021, alt: 4.6, radius: 5.2, count: 4 }, // the harbor
-    { lat: 40.7003, lng: -73.9955, alt: 5.2, radius: 3.4, count: 3 }, // Brooklyn Bridge
-  ];
+  const flocks = city.ambient.birdFlocks ?? [];
   const random = seededRandom(77);
   flocks.forEach((flock) => {
     const center = project(flock.lat, flock.lng, flock.alt);
@@ -2383,12 +2086,7 @@ function makeHazeTexture() {
 
 function createHaze() {
   const tex = makeHazeTexture();
-  const pads = [
-    { lat: 40.682, lng: -73.952, w: 48, d: 36 }, // Brooklyn
-    { lat: 40.714, lng: -73.928, w: 32, d: 26 }, // Williamsburg / Bushwick
-    { lat: 40.762, lng: -73.918, w: 32, d: 28 }, // LIC / Astoria
-    { lat: 40.742, lng: -74.048, w: 28, d: 48 }, // Jersey
-  ];
+  const pads = city.ambient.hazePads ?? [];
   pads.forEach((pad, index) => {
     const material = new THREE.MeshBasicMaterial({
       map: tex,
@@ -2427,12 +2125,11 @@ const PED_PALETTE = [0x30343c, 0x6b7280, 0x9a4a3f, 0x3b5f8a, 0x7d6a4f, 0xb8b2a4,
 function createPedestrians() {
   if (!sidewalkPlates.length) return;
   const random = seededRandom(515);
-  const { uLen, vLen, rot } = GRID_METRICS;
   pedRect = {
-    hx: (vLen - 0.26) / 2 + 0.06, // just outside the plate edge: the curb line
-    hz: (uLen - 0.12) / 2 + 0.05,
-    cos: Math.cos(rot),
-    sin: Math.sin(rot),
+    hx: PLATE.w / 2 + 0.06, // just outside the plate edge: the curb line
+    hz: PLATE.d / 2 + 0.05,
+    cos: Math.cos(PLATE.rot),
+    sin: Math.sin(PLATE.rot),
   };
   const total = Math.min(240, sidewalkPlates.length * 3);
   for (let i = 0; i < total; i += 1) {
@@ -2665,13 +2362,72 @@ function renderAreaList() {
   });
 }
 
+// Per-city chrome: brand line, city switcher, credit, search placeholder.
+// All of it used to be hardcoded in index.html.
+function renderChrome() {
+  const clusters = AREAS.filter((area) => area.id !== "all").length;
+  const sub = document.querySelector("#brandSub");
+  if (sub) sub.textContent = `${STARTUPS.length} startups · ${clusters} ${city.shortName} clusters`;
+
+  const title = document.querySelector("#brandTitle");
+  if (title) title.textContent = CITY_MANIFEST.length > 1 ? `${city.shortName} AI Atlas` : "AI Atlas";
+
+  const search = document.querySelector("#companySearch");
+  if (search) search.placeholder = `Search ${STARTUPS.length} AI startups by name, sector, or area…`;
+
+  const credit = document.querySelector("#railCredit");
+  if (credit && city.credit) {
+    credit.innerHTML = `Data: <a href="${escapeHtml(city.credit.href)}" target="_blank" rel="noreferrer">${escapeHtml(
+      city.credit.label,
+    )}</a> · ${escapeHtml(city.credit.date)}`;
+  }
+
+  const switcher = document.querySelector("#citySwitcher");
+  if (!switcher) return;
+  switcher.innerHTML = "";
+  if (CITY_MANIFEST.length < 2) return; // a lone city needs no switcher
+  CITY_MANIFEST.forEach((entry) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "city-chip";
+    button.textContent = entry.shortName;
+    button.title = entry.name;
+    button.setAttribute("aria-pressed", String(entry.id === city.id));
+    button.classList.toggle("is-active", entry.id === city.id);
+    button.addEventListener("click", () => switchCity(entry.id));
+    switcher.appendChild(button);
+  });
+}
+
 function miniMapPosition(item) {
-  const x = 12 + ((item.lng + 74.028) / 0.082) * 96;
-  const y = 10 + ((40.765 - item.lat) / 0.082) * 135;
-  return { x: Math.max(5, Math.min(115, x)), y: Math.max(5, Math.min(155, y)) };
+  const b = city.miniMap.bounds;
+  const clamp = city.miniMap.clamp ?? { x: [5, 115], y: [5, 155] };
+  const x = b.x + ((item.lng - b.lngMin) / b.lngSpan) * b.w;
+  const y = b.y + ((b.latMax - item.lat) / b.latSpan) * b.h;
+  return {
+    x: Math.max(clamp.x[0], Math.min(clamp.x[1], x)),
+    y: Math.max(clamp.y[0], Math.min(clamp.y[1], y)),
+  };
 }
 
 function renderMiniMap() {
+  // The outline is per-city, so the shell ships an empty <svg> and it gets
+  // filled here rather than being hardcoded in index.html.
+  const svg = document.querySelector("#miniMapSvg");
+  if (svg) {
+    svg.setAttribute("viewBox", city.miniMap.viewBox);
+    svg.setAttribute("aria-label", city.miniMap.label);
+    svg.querySelectorAll(".mini-map__shape").forEach((el) => el.remove());
+    city.miniMap.paths.forEach((path) => {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      el.setAttribute("class", `mini-map__shape ${path.className}`);
+      el.setAttribute("d", path.d);
+      svg.insertBefore(el, miniMapPoints);
+    });
+  }
+  const caption = document.querySelector(".mini-map p");
+  if (caption) caption.textContent = city.mapLabel;
+
   miniMapPoints.innerHTML = "";
   STARTUPS.forEach((startup) => {
     const point = miniMapPosition(startup);
@@ -2707,10 +2463,21 @@ function updateUiState() {
 }
 
 /* ---------------------------------------------------------------- */
-/* Deep links: #/company/:id and #/area/:id, with back/forward       */
+/* Deep links: #/city/:id/{area,company}/:id, with back/forward      */
+/* Bare #/area/:id and #/company/:id still resolve, against the      */
+/* default city — those links are already out in the wild.           */
 /* ---------------------------------------------------------------- */
 
 let suppressHashEvent = false;
+
+// Every route this city writes is prefixed, except the default city's root,
+// which stays "#/" so existing shared links keep working.
+const HASH_ROOT = city.id === DEFAULT_CITY_ID ? "#/" : `#/city/${city.id}`;
+
+function cityHash(suffix = "") {
+  if (city.id === DEFAULT_CITY_ID) return suffix ? `#/${suffix}` : "#/";
+  return suffix ? `#/city/${city.id}/${suffix}` : HASH_ROOT;
+}
 
 function writeHash(hash) {
   if (location.hash === hash) return;
@@ -2722,19 +2489,32 @@ function shareUrl(hash) {
   return `${location.origin}${location.pathname}${hash}`;
 }
 
+// Reload rather than rebuild: the scene is regenerated wholesale on a city
+// change anyway, so a navigation costs only the bundle re-parse and avoids
+// disposing several dozen instanced meshes by hand.
+function switchCity(cityId) {
+  if (cityId === city.id) return;
+  const target = cityId === DEFAULT_CITY_ID ? "#/" : `#/city/${cityId}`;
+  location.hash = target;
+  location.reload();
+}
+
 function applyHashFromLocation() {
   const hash = location.hash || "#/";
-  const company = hash.match(/^#\/company\/([\w-]+)$/);
+  // Strip the city segment; the city itself was resolved at boot.
+  const rest = hash.replace(/^#\/city\/[\w-]+\/?/, "#/");
+
+  const company = rest.match(/^#\/company\/([\w-]+)$/);
   if (company && STARTUPS.some((s) => s.id === company[1])) {
     selectStartup(company[1]);
     return;
   }
-  const area = hash.match(/^#\/area\/([\w-]+)$/);
+  const area = rest.match(/^#\/area\/([\w-]+)$/);
   if (area && AREA_BY_ID[area[1]]) {
     setActiveArea(area[1]);
     return;
   }
-  if (hash === "#/" || hash === "#") setActiveArea("all");
+  if (rest === "#/" || rest === "#") setActiveArea("all");
 }
 
 function setActiveArea(areaId, { keepSelection = false } = {}) {
@@ -2748,7 +2528,7 @@ function setActiveArea(areaId, { keepSelection = false } = {}) {
   renderAreaDetail(area);
   updateUiState();
   if (!keepSelection) {
-    writeHash(areaId === "all" ? "#/" : `#/area/${areaId}`);
+    writeHash(areaId === "all" ? cityHash() : cityHash(`area/${areaId}`));
   }
 }
 
@@ -2761,7 +2541,7 @@ function selectStartup(id) {
   engageFocus(startup);
   renderStartupDetail(startup);
   updateUiState();
-  writeHash(`#/company/${id}`);
+  writeHash(cityHash(`company/${id}`));
 }
 
 function renderAreaDetail() {
@@ -2790,8 +2570,8 @@ function renderStartupDetail(startup) {
   const blurb =
     info.blurb ||
     startup.notes ||
-    `${startup.sector || "An AI company"} on the New York City map.`;
-  const loc = info.loc || AREA_BY_ID[startup.area]?.shortLabel || "New York City";
+    `${startup.sector || "An AI company"} on the ${city.name} map.`;
+  const loc = info.loc || AREA_BY_ID[startup.area]?.shortLabel || city.name;
 
   let host = "";
   if (url) {
@@ -2813,7 +2593,7 @@ function renderStartupDetail(startup) {
   ]
     .filter(Boolean)
     .join(" · ");
-  const jobsUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(startup.name)}&location=New%20York`;
+  const jobsUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(startup.name)}&location=${encodeURIComponent(city.jobsLocation)}`;
 
   detailCard.classList.remove("is-hidden", "is-onboard");
   detailCard.innerHTML = `
@@ -2839,7 +2619,7 @@ function renderStartupDetail(startup) {
   const copyBtn = detailCard.querySelector("[data-copy]");
   if (copyBtn)
     copyBtn.addEventListener("click", async () => {
-      copyBtn.textContent = (await copyText(shareUrl(`#/company/${startup.id}`))) ? "Copied" : "Copy failed";
+      copyBtn.textContent = (await copyText(shareUrl(cityHash(`company/${startup.id}`)))) ? "Copied" : "Copy failed";
       setTimeout(() => {
         copyBtn.textContent = "Copy link";
       }, 1400);
@@ -2876,7 +2656,7 @@ function clearSelection() {
   const area = AREA_BY_ID[state.activeAreaId] || AREA_BY_ID.all;
   renderAreaDetail(area);
   updateUiState();
-  writeHash(area.id === "all" ? "#/" : `#/area/${area.id}`);
+  writeHash(area.id === "all" ? cityHash() : cityHash(`area/${area.id}`));
 }
 
 function cameraDestination(focus) {
@@ -3007,7 +2787,7 @@ function renderSearchResults(query) {
   }
 
   if (!results.length) {
-    searchResults.innerHTML = `<div class="search-result" aria-disabled="true"><span class="search-result__body"><strong>No matches</strong><span>Try a company name, sector, stage, or neighborhood.</span></span></div><a class="search-results__cta" href="https://github.com/Nutlope/interactive-3d-map/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer noopener">Know a startup that belongs here? Add it to the atlas ↗</a>`;
+    searchResults.innerHTML = `<div class="search-result" aria-disabled="true"><span class="search-result__body"><strong>No matches</strong><span>Try a company name, sector, stage, or neighborhood.</span></span></div><a class="search-results__cta" href="https://github.com/Nutlope/nyc-ai-atlas/blob/main/CONTRIBUTING.md" target="_blank" rel="noreferrer noopener">Know a startup that belongs here? Add it to the atlas ↗</a>`;
     return;
   }
 
@@ -3170,7 +2950,7 @@ function init() {
   createSubwayLayer();
   createBuildings();
   createPedestrians();
-  createLandmarks();
+  city.createLandmarks?.(cityKit);
   createMarkers();
   createVehicles(roadPaths);
   createFerries();
@@ -3179,6 +2959,7 @@ function init() {
   createBirds();
   createHaze();
   createLabels();
+  renderChrome();
   renderAreaList();
   renderMiniMap();
   renderPinLegend();
@@ -3197,10 +2978,13 @@ function init() {
 
 init();
 
-window.NYCAIAtlas = {
+window.AIAtlas = {
+  city: city.id,
+  cities: CITY_MANIFEST.map((c) => c.id),
   startups: STARTUPS.length,
-  sources: DATA_SOURCES,
+  sources: city.dataSources,
   flyToArea: setActiveArea,
+  switchCity,
 };
 
 window.__atlas = { scene, camera, controls, project, THREE, selectStartup };

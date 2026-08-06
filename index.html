@@ -5,28 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta
       name="description"
-      content="A high-fidelity 3D interactive map of New York City's AI startups, neighborhood by neighborhood."
+      content="High-fidelity 3D interactive maps of the world's AI startup clusters, neighborhood by neighborhood."
     />
-    <title>NYC AI Atlas</title>
+    <title>AI Atlas</title>
 
-    <!-- Open Graph / social cards -->
+    <!-- Open Graph / social cards. Hash routes never reach a server, so a
+         shared #/city/… link gets this generic card, not a per-city one. -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="NYC AI Atlas" />
-    <meta property="og:title" content="NYC AI Atlas: A 3D map of New York's AI startups" />
+    <meta property="og:site_name" content="AI Atlas" />
+    <meta property="og:title" content="AI Atlas: 3D maps of the world's AI startup clusters" />
     <meta
       property="og:description"
-      content="An interactive 3D map of every AI startup in New York City, explored block by block across Manhattan and Brooklyn."
+      content="Interactive 3D maps of where AI companies actually are, explored block by block. New York and San Francisco."
     />
     <meta property="og:image" content="./og.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="3D map of New York City showing AI startups across Manhattan and Brooklyn" />
+    <meta property="og:image:alt" content="3D map showing AI startups across a city" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="NYC AI Atlas: A 3D map of New York's AI startups" />
+    <meta name="twitter:title" content="AI Atlas: 3D maps of the world's AI startup clusters" />
     <meta
       name="twitter:description"
-      content="An interactive 3D map of every AI startup in New York City, explored block by block."
+      content="Interactive 3D maps of where AI companies actually are, explored block by block."
     />
     <meta name="twitter:image" content="./og.jpg" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
@@ -52,12 +53,12 @@
   </head>
   <body>
     <div id="app" class="atlas-shell">
-      <canvas id="scene" aria-label="3D interactive map of NYC AI startups"></canvas>
+      <canvas id="scene" aria-label="3D interactive map of AI startups"></canvas>
       <div id="labelsLayer" class="labels-layer" aria-hidden="false"></div>
 
       <div class="hud-left">
-        <aside class="rail" aria-label="NYC AI Atlas navigation">
-          <a class="brand" href="#" aria-label="NYC AI Atlas home">
+        <aside class="rail" aria-label="AI Atlas navigation">
+          <a class="brand" href="#" aria-label="AI Atlas home">
             <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
               <!-- Map pin: the atlas mark. Balanced teardrop with a round
                    aperture, drawn upright so it reads at any size. -->
@@ -68,8 +69,8 @@
               />
             </svg>
             <span class="brand__text">
-              <h1>NYC AI Atlas</h1>
-              <span class="brand__sub">48 startups · 6 NYC clusters</span>
+              <h1 id="brandTitle">AI Atlas</h1>
+              <span class="brand__sub" id="brandSub"></span>
             </span>
           </a>
 
@@ -88,9 +89,7 @@
               <span class="rail__cta-arrow" aria-hidden="true">↗</span>
             </a>
             <p class="rail__hint"><kbd>↑</kbd><kbd>↓</kbd> areas · <kbd>⌘K</kbd> search · click a pin</p>
-            <p class="rail__credit">
-              Data: <a href="https://airtable.com/appK49oThZBOTSYlX/shr5Chudz00G5jxwW/tblFlqQHeAvsVxLNI" target="_blank" rel="noreferrer">Lux NYC AI database</a> · June 2026
-            </p>
+            <p class="rail__credit" id="railCredit"></p>
           </div>
         </aside>
 
@@ -98,6 +97,7 @@
       </div>
 
       <div class="hud-top-right">
+        <div id="citySwitcher" class="city-switcher" role="group" aria-label="Choose a city"></div>
         <button id="searchTrigger" class="search-trigger" type="button" aria-haspopup="dialog" aria-label="Search companies">
           <svg class="search-trigger__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           <span class="search-trigger__label">Search</span>
@@ -109,15 +109,11 @@
       </div>
 
       <aside class="mini-map" aria-label="Mini map">
-        <svg id="miniMapSvg" viewBox="0 0 120 160" role="img" aria-label="Simplified NYC outline and active area">
-          <path
-            class="mini-map__land"
-            d="M48 10 L72 18 L82 48 L76 84 L84 120 L62 148 L42 130 L48 92 L38 56 Z"
-          />
-          <path class="mini-map__brooklyn" d="M76 92 L110 104 L104 150 L66 148 L84 120 Z" />
+        <!-- Outline paths are injected per city by renderMiniMap(). -->
+        <svg id="miniMapSvg" viewBox="0 0 120 160" role="img">
           <g id="miniMapPoints"></g>
         </svg>
-        <p>NYC</p>
+        <p></p>
       </aside>
 
     </div>
@@ -125,7 +121,7 @@
     <dialog id="searchModal" class="search-modal" aria-label="Search AI startups">
       <div class="search-modal__bar">
         <svg class="search-modal__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input id="companySearch" type="search" autocomplete="off" placeholder="Search 48 AI startups by name, sector, or area…" aria-label="Search companies" />
+        <input id="companySearch" type="search" autocomplete="off" aria-label="Search companies" />
         <kbd class="search-modal__esc">esc</kbd>
       </div>
       <div id="searchResults" class="search-results" role="listbox"></div>

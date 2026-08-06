@@ -290,6 +290,7 @@ body.is-focused .atlas-shell::after {
 .detail-card,
 .search-trigger,
 .icon-btn,
+.city-switcher,
 .mini-map,
 .search-modal {
   border: 1px solid var(--glass-border);
@@ -775,6 +776,48 @@ kbd {
   animation: hudInUp var(--dur-long) var(--ease-out) 80ms backwards;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* ------------------- City switcher ------------------- */
+/* Segmented control sharing the glass treatment with the other HUD chips.
+   Empty (and invisible) when only one city is registered. */
+.city-switcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 38px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+}
+
+.city-switcher:empty {
+  display: none;
+}
+
+.city-chip {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 3px);
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    background var(--dur-short) var(--ease-out),
+    color var(--dur-short) var(--ease-out);
+}
+
+.city-chip.is-active {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+.city-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 .search-trigger {
