@@ -2813,7 +2813,9 @@ function renderStartupDetail(startup) {
   ]
     .filter(Boolean)
     .join(" · ");
-  const jobsUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(startup.name)}&location=New%20York`;
+  const jobsUrl =
+    safeUrl(startup.jobs) ||
+    `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(startup.name)}&location=New%20York`;
 
   detailCard.classList.remove("is-hidden", "is-onboard");
   detailCard.innerHTML = `
