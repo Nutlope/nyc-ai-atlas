@@ -12,7 +12,7 @@ export const AREAS = [
     shortLabel: "Whole Board",
     focus: { lat: 40.7278, lng: -73.9955, distance: 88, height: 62, rotation: 0.64 },
     description:
-      "49 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
+      "52 AI companies across six startup clusters. Frontier labs, creative tools, infrastructure, fintech, and health, mapped block by block across Manhattan and Brooklyn.",
   },
   {
     id: "midtown",
@@ -118,6 +118,7 @@ export const STARTUPS = [
   { id: "1e5b0cb0", name: "Seek AI", lat: 40.7204872, lng: -74.00454, area: "soho", stage: "Early-Stage", sector: "Enterprise Automation", office: "HQ", website: "https://www.seek.ai/", source: "felt+airtable" },
   { id: "b9767786", name: "Slingshot.ai", lat: 40.7340474, lng: -73.9899434, area: "flatiron", stage: "Early-Stage", sector: "Healthcare", office: "HQ", website: "https://www.slingshot.xyz/", source: "felt+airtable" },
   { id: "3cb319a2", name: "Snowflake", lat: 40.7501343, lng: -73.986113, area: "midtown", stage: "Public", sector: "AI/Data Infrastructure", office: "Satellite Office", website: "https://www.snowflake.com/en/", source: "felt+airtable" },
+  { id: "spiral", name: "Spiral", lat: 40.720339, lng: -74.0014716, area: "soho", stage: null, sector: "AI/Data Infrastructure", office: null, website: "https://spiraldb.com/", jobs: "https://jobs.ashbyhq.com/spiral", source: "user" },
   { id: "e25f0e91", name: "Stainless API", lat: 40.6960712, lng: -73.983292, area: "brooklyn", stage: "Early-Stage", sector: "AI/Data Infrastructure", office: "HQ", website: "https://www.stainlessapi.com", source: "felt+airtable" },
   { id: "c3a4e9d6", name: "Summer Health", lat: 40.7386876, lng: -73.9889957, area: "flatiron", stage: "Early-Stage", sector: "Healthcare", office: "HQ", website: "https://summerhealth.com/", source: "felt+airtable" },
   { id: "d05707e8", name: "Tennr", lat: 40.7297238, lng: -73.9900514, area: "flatiron", stage: "Early-Stage", sector: "Healthcare", office: "HQ", website: "https://www.tennr.com/", source: "felt+airtable" },
@@ -174,6 +175,7 @@ export const COMPANY_INFO = {
   "1e5b0cb0": { blurb: "Ask data questions in plain English across the enterprise.", loc: "Lispenard St · Tribeca" },
   b9767786: { blurb: "AI for accessible mental and behavioral health support.", loc: "4th Ave · Union Square" },
   "3cb319a2": { blurb: "Cloud data platform and warehouse for AI workloads.", loc: "W 35th St · Midtown" },
+  spiral: { blurb: "Multimodal data platform for frontier AI.", loc: "Broadway · SoHo" },
   e25f0e91: { blurb: "Generates polished, type-safe SDKs from any API spec.", loc: "Brooklyn Navy Yard" },
   c3a4e9d6: { blurb: "Pediatric telehealth with AI-assisted visit notes.", loc: "E 20th St · Flatiron" },
   d05707e8: { blurb: "AI that automates healthcare referrals and patient intake.", loc: "Astor Pl · NoHo" },
